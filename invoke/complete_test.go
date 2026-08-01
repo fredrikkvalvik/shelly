@@ -3,6 +3,8 @@ package invoke
 import (
 	"strings"
 	"testing"
+
+	"github.com/fredrikkvalvik/shelly/config"
 )
 
 func vals(t *testing.T, c Completion) string {
@@ -22,7 +24,7 @@ func TestComplete(t *testing.T) {
 		words     []string
 		cursor    int
 		want      string
-		directive string
+		directive config.Builtin
 	}{{
 		name:   "subcommands at the top level",
 		words:  []string{"t", ""},
@@ -114,7 +116,7 @@ exec = [{ cmd = "cat", argv = ["$path"] }]
 	tl := loadSrc(t, src)
 
 	c := Complete(tl, []string{"t", "open", ""}, 2)
-	if c.Directive != "files" {
+	if c.Directive != config.BuiltinFiles {
 		t.Errorf("directive = %q, want \"files\"", c.Directive)
 	}
 	if len(c.Candidates) != 0 {

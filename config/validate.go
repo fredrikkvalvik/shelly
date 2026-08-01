@@ -119,10 +119,9 @@ func validateFlags(c *Cmd, errf errfn) error {
 		}
 		seen[f.Name] = true
 
-		switch f.Type {
-		case "bool", "string":
-		default:
-			return errf("flag %q has type %q, want \"bool\" or \"string\"", f.Name, f.Type)
+		// NewFlagType guards the load path; this catches a Tool built in Go
+		if !f.Type.Valid() {
+			return errf("flag %q has invalid type %q", f.Name, f.Type)
 		}
 
 		if f.Short != "" {

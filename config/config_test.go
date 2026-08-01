@@ -79,7 +79,7 @@ func TestLoadTree(t *testing.T) {
 	}
 
 	glob := search.Arg("glob")
-	if glob == nil || glob.Default != "*" || glob.Complete.Builtin != "files" {
+	if glob == nil || glob.Default != "*" || glob.Complete.Builtin != BuiltinFiles {
 		t.Errorf("glob arg = %+v", glob)
 	}
 	hidden := search.Flag("hidden")
@@ -218,7 +218,7 @@ exec = [{ cmd = "echo", argv = ["$aa", "$bb"] }]`,
 [cmd.x]
 flag = [{ name = "n", type = "int" }]
 exec = [{ cmd = "echo", argv = ["$n"] }]`,
-		want: `want "bool" or "string"`,
+		want: `unknown flag type "int", want one of: bool, string`,
 	}, {
 		name: "unknown key",
 		src: `

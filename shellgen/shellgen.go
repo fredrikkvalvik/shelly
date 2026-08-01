@@ -25,16 +25,16 @@ type Tool struct {
 // Emit returns shell code defining every tool. bin must be the absolute path
 // to the shelly binary, which is what keeps the functions from recursing when
 // a tool happens to be named shelly.
-func Emit(shell, bin string, tools []Tool) (string, error) {
+func Emit(shell Shell, bin string, tools []Tool) (string, error) {
 	var emit func(*strings.Builder, string, Tool)
 
 	switch shell {
-	case "zsh":
+	case Zsh:
 		emit = emitZsh
-	case "bash":
+	case Bash:
 		emit = emitBash
 	default:
-		return "", fmt.Errorf("unsupported shell %q, want \"zsh\" or \"bash\"", shell)
+		return "", fmt.Errorf("unsupported shell %q, want one of: %s", shell, list(shells))
 	}
 
 	var b strings.Builder

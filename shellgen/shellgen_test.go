@@ -7,15 +7,23 @@ import (
 )
 
 func TestEmitUnsupportedShell(t *testing.T) {
-	if _, err := Emit("fish", "/bin/shelly", nil); err == nil {
+	if _, err := Emit(Shell("fish"), "/bin/shelly", nil); err == nil {
 		t.Fatal("expected an error for an unsupported shell")
+	}
+	if _, err := NewShell("fish"); err == nil {
+		t.Fatal("expected NewShell to reject an unsupported shell")
+	}
+	for _, name := range []string{"zsh", "bash"} {
+		if _, err := NewShell(name); err != nil {
+			t.Errorf("NewShell(%q): %v", name, err)
+		}
 	}
 }
 
 func TestEmitDefinesEveryTool(t *testing.T) {
 	tools := []Tool{{Name: "ffzf", File: "/a/ffzf.toml"}, {Name: "dk", File: "/a/dk.toml"}}
 
-	for _, shell := range []string{"zsh", "bash"} {
+	for _, shell := range shells {
 		out, err := Emit(shell, "/bin/shelly", tools)
 		if err != nil {
 			t.Fatal(err)
@@ -33,7 +41,7 @@ func TestEmitQuotesHostilePaths(t *testing.T) {
 	hostile := `/tmp/it's here/'; touch /tmp/PWNED; '/x.toml`
 	tools := []Tool{{Name: "t", File: hostile}}
 
-	for _, shell := range []string{"zsh", "bash"} {
+	for _, shell := range shells {
 		out, err := Emit(shell, "/bin/shelly", tools)
 		if err != nil {
 			t.Fatal(err)
@@ -44,8 +52,8 @@ func TestEmitQuotesHostilePaths(t *testing.T) {
 
 		// the shells themselves are the real oracle for whether this parses
 		script := "shelly() { :; }; command() { :; }; compdef() { :; }; _describe() { :; }\n" + out
-		bin := shell
-		if shell == "bash" {
+		bin := string(shell)
+		if shell == Bash {
 			bin = "/bin/bash" // macOS bash 3.2, the oldest we must support
 		}
 		if err := exec.Command(bin, "-n", "-c", script).Run(); err != nil {

@@ -125,12 +125,12 @@ func cmdRun(args []string) error {
 }
 
 func cmdInit(args []string) error {
-	shell := ""
-	if len(args) > 0 {
-		shell = args[0]
-	}
-	if shell == "" {
-		shell = detectShell()
+	shell := detectShell()
+	if len(args) > 0 && args[0] != "" {
+		var err error
+		if shell, err = shellgen.NewShell(args[0]); err != nil {
+			return err
+		}
 	}
 
 	dir := configDir()
@@ -155,15 +155,20 @@ func cmdInit(args []string) error {
 
 func cmdLoad(args []string) error {
 	fs := newFlagSet("load")
-	shell := fs.String("shell", "", "zsh or bash, defaults to $SHELL")
+	name := fs.String("shell", "", "zsh or bash, defaults to $SHELL")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() == 0 {
 		return errors.New("load: need at least one config file")
 	}
-	if *shell == "" {
-		*shell = detectShell()
+
+	shell := detectShell()
+	if *name != "" {
+		var err error
+		if shell, err = shellgen.NewShell(*name); err != nil {
+			return err
+		}
 	}
 
 	tools := make([]shellgen.Tool, 0, fs.NArg())
@@ -177,7 +182,7 @@ func cmdLoad(args []string) error {
 		tools = append(tools, shellgen.Tool{Name: tool.Name, File: tool.File})
 	}
 
-	return emit(*shell, tools)
+	return emit(shell, tools)
 }
 
 func cmdComplete(args []string) error {
@@ -253,7 +258,7 @@ func cmdCheck(args []string) error {
 	return nil
 }
 
-func emit(shell string, tools []shellgen.Tool) error {
+func emit(shell shellgen.Shell, tools []shellgen.Tool) error {
 	bin, err := os.Executable()
 	if err != nil {
 		// without an absolute path the emitted functions would depend on PATH
@@ -284,11 +289,11 @@ func statusOf(err error) error {
 	return err
 }
 
-func detectShell() string {
-	if s := filepath.Base(os.Getenv("SHELL")); s == "zsh" || s == "bash" {
+func detectShell() shellgen.Shell {
+	if s, err := shellgen.NewShell(filepath.Base(os.Getenv("SHELL"))); err == nil {
 		return s
 	}
-	return "zsh"
+	return shellgen.Zsh
 }
 
 func configDir() string {

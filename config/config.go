@@ -87,13 +87,13 @@ type Flag struct {
 	Name     string
 	Short    string
 	Doc      string
-	Type     string // "bool" or "string"
+	Type     FlagType
 	Pass     string // literal token emitted ahead of the value
 	Default  string
 	Complete Complete
 }
 
-func (f *Flag) IsBool() bool { return f.Type == "bool" }
+func (f *Flag) IsBool() bool { return f.Type == FlagBool }
 
 // one program in a pipeline
 type Stage struct {
@@ -103,7 +103,7 @@ type Stage struct {
 
 // where completion candidates come from: a builtin or a program to run
 type Complete struct {
-	Builtin string   // "files" or "dirs"
+	Builtin Builtin
 	Argv    []string // program plus arguments, one candidate per output line
 }
 
@@ -285,7 +285,7 @@ func (l *loader) flags(c ctx, v any) ([]*Flag, error) {
 	flags := make([]*Flag, 0, len(items))
 	for i, it := range items {
 		ic := c.index(i)
-		f := &Flag{Type: "string"}
+		f := &Flag{Type: FlagString}
 		for _, k := range l.sorted(ic, it) {
 			kc := ic.at(k)
 			switch k {
@@ -296,7 +296,12 @@ func (l *loader) flags(c ctx, v any) ([]*Flag, error) {
 			case "doc":
 				f.Doc, err = asString(kc, it[k])
 			case "type":
-				f.Type, err = asString(kc, it[k])
+				var s string
+				if s, err = asString(kc, it[k]); err == nil {
+					if f.Type, err = NewFlagType(s); err != nil {
+						err = kc.errf("%s", err)
+					}
+				}
 			case "pass":
 				f.Pass, err = asString(kc, it[k])
 			case "default":
@@ -353,12 +358,11 @@ func (l *loader) exec(c ctx, v any) ([]*Stage, error) {
 // complete is either a builtin name or an argv list
 func (l *loader) complete(c ctx, v any) (Complete, error) {
 	if s, ok := v.(string); ok {
-		switch s {
-		case "files", "dirs":
-			return Complete{Builtin: s}, nil
-		default:
-			return Complete{}, c.errf("unknown builtin %q, want \"files\" or \"dirs\"", s)
+		b, err := NewBuiltin(s)
+		if err != nil {
+			return Complete{}, c.errf("%s", err)
 		}
+		return Complete{Builtin: b}, nil
 	}
 
 	argv, err := asStrings(c, v)

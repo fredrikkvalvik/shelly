@@ -15,9 +15,10 @@ type Candidate struct {
 }
 
 // Directive asks the shell to fall back to its own completion, since Go has no
-// business reimplementing file completion.
+// business reimplementing file completion. It is empty when shelly produced
+// the candidates itself.
 type Completion struct {
-	Directive  string // "files", "dirs", or empty
+	Directive  config.Builtin
 	Candidates []Candidate
 }
 
