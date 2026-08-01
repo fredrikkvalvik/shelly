@@ -15,8 +15,22 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// reserved keys inside a command table. every other key is a subcommand
-var reserved = []string{"doc", "arg", "flag", "exec"}
+// the keys each kind of table accepts. these drive the "unknown key" errors
+// and are what docs/reference.toml is checked against, so a new key cannot
+// ship undocumented
+var (
+	rootKeys = []string{"name", "doc", "cmd"}
+	argKeys  = []string{"name", "doc", "default", "required", "variadic", "complete"}
+	flagKeys = []string{"name", "short", "doc", "type", "pass", "default", "complete"}
+	execKeys = []string{"cmd", "argv"}
+
+	// reserved keys inside a command table. every other key is a subcommand
+	reserved = []string{"doc", "arg", "flag", "exec"}
+)
+
+func unknownKey(c ctx, k string, want []string) error {
+	return c.errf("unknown key %q, want one of: %s", k, strings.Join(want, ", "))
+}
 
 type Tool struct {
 	Name string
@@ -164,7 +178,7 @@ func (l *loader) tool(abs string, raw map[string]any) (*Tool, error) {
 		case "cmd":
 			// handled below, once name is known
 		default:
-			err = kc.errf("unknown key %q", k)
+			err = unknownKey(kc, k, rootKeys)
 		}
 		if err != nil {
 			return nil, err
@@ -220,7 +234,8 @@ func (l *loader) cmd(c ctx, name string, path []string, v any) (*Cmd, error) {
 			// every non-reserved key is a subcommand, so a typo like "exce"
 			// lands here. say that rather than complaining about its type
 			if _, ok := tbl[k].(map[string]any); !ok {
-				return nil, kc.errf("unknown key %q (a subcommand must be a table)", k)
+				return nil, kc.errf("unknown key %q: a subcommand must be a table, and the only other keys here are %s",
+					k, strings.Join(reserved, ", "))
 			}
 			var sub *Cmd
 			sub, err = l.cmd(kc, k, append(slices.Clone(path), k), tbl[k])
@@ -262,7 +277,7 @@ func (l *loader) args(c ctx, v any) ([]*Arg, error) {
 			case "complete":
 				a.Complete, err = l.complete(kc, it[k])
 			default:
-				err = kc.errf("unknown key %q", k)
+				err = unknownKey(kc, k, argKeys)
 			}
 			if err != nil {
 				return nil, err
@@ -309,7 +324,7 @@ func (l *loader) flags(c ctx, v any) ([]*Flag, error) {
 			case "complete":
 				f.Complete, err = l.complete(kc, it[k])
 			default:
-				err = kc.errf("unknown key %q", k)
+				err = unknownKey(kc, k, flagKeys)
 			}
 			if err != nil {
 				return nil, err
@@ -341,7 +356,7 @@ func (l *loader) exec(c ctx, v any) ([]*Stage, error) {
 			case "argv":
 				s.Argv, err = asStrings(kc, it[k])
 			default:
-				err = kc.errf("unknown key %q", k)
+				err = unknownKey(kc, k, execKeys)
 			}
 			if err != nil {
 				return nil, err

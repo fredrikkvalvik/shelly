@@ -224,14 +224,14 @@ exec = [{ cmd = "echo", argv = ["$n"] }]`,
 		src: `
 [cmd.x]
 exce = [{ cmd = "echo", argv = ["hi"] }]`,
-		want: `unknown key "exce" (a subcommand must be a table)`,
+		want: `unknown key "exce": a subcommand must be a table`,
 	}, {
 		name: "unknown key in arg",
 		src: `
 [cmd.x]
 arg  = [{ name = "a", require = true }]
 exec = [{ cmd = "echo", argv = ["$a"] }]`,
-		want: `unknown key "require"`,
+		want: `unknown key "require", want one of: name, doc, default, required, variadic, complete`,
 	}, {
 		name: "reserved subcommand name",
 		src: `

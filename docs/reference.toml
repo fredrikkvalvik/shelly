@@ -1,0 +1,166 @@
+# shelly config reference — every key shelly accepts.
+#
+# This file is a working config: the test suite loads it, so nothing here can
+# rot, and it is checked to mention every key the loader accepts, so a new key
+# cannot ship undocumented. Copy it as a starting point.
+#
+# One file defines one tool. See README.md for the semantics behind all this.
+
+# ---------------------------------------------------------------------------
+# root table
+# ---------------------------------------------------------------------------
+
+# Optional. When present it MUST equal the filename without its extension, so
+# this file has to say "reference". The filename stays authoritative because
+# `shelly init` lists the config directory rather than parsing every file in
+# it on shell startup.
+name = "reference"
+
+# Optional. One line, shown as the tool's summary in help.
+doc = "every key shelly accepts"
+
+# ---------------------------------------------------------------------------
+# commands: [cmd.PATH] is the command path
+# ---------------------------------------------------------------------------
+#
+#   [cmd.search]    ->  reference search
+#   [cmd.db.shell]  ->  reference db shell
+#
+# Inside a command table, doc/arg/flag/exec are reserved. Every other key is a
+# subcommand, so a subcommand cannot be named doc, arg, flag or exec.
+
+[cmd.search]
+doc = "shown in the parent's command list and in this command's own help"
+
+# Positional args, in declaration order. Optional args may not be followed by
+# required ones, and only the last may be variadic.
+arg = [
+  { name     = "glob",
+    doc      = "help text for this arg",
+    default  = "*",      # used when the arg is omitted; conflicts with required
+    required = false,    # a required arg must be given; conflicts with default
+    variadic = false,    # collects the rest; only valid on the last arg
+    complete = "files" },# "files" or "dirs", or an argv list — see cmd.logs
+]
+
+# Flags. Every declared flag must be referenced from exec, or the config is
+# rejected: an unused flag is a lie in the help output.
+flag = [
+  # type = "bool" is present-or-absent and takes no value, so it needs "pass":
+  # the literal token emitted when the flag is set. It has nothing else to emit.
+  { name  = "hidden",
+    short = "H",             # optional, exactly one character; "h" is reserved
+    doc   = "include hidden files",
+    type  = "bool",
+    pass  = "--hidden" },
+
+  # type = "string" takes a value. With "pass" it renders as two argv elements,
+  # the token then the value. Without "pass" it renders as the bare value.
+  { name    = "max",
+    short   = "m",
+    doc     = "limit the number of results",
+    type    = "string",      # the default, so this key can be omitted
+    pass    = "--max-count",
+    default = "100" },       # used when the flag is absent; bool flags cannot have one
+]
+
+# The pipeline. Entries run concurrently and each pipes into the next, so this
+# is `rg ... | fzf ...`. A command with no exec is a group (see cmd.db).
+#
+# Nothing is passed to a shell. Every element below becomes one argv element,
+# so a value containing a space, a glob or $(...) reaches the program verbatim
+# and there is nothing to quote or escape.
+exec = [
+  { cmd  = "rg",
+    argv = ["--files", "$hidden", "$max", "--glob", "$glob"] },
+  { cmd  = "fzf",
+    argv = ["--height", "40%", "--preview", "bat --color=always {}"] },
+]
+
+# ---------------------------------------------------------------------------
+# substitution forms
+# ---------------------------------------------------------------------------
+
+[cmd.subst]
+doc = "the ways a value can be written into argv"
+
+arg = [
+  { name = "value", doc = "any string", default = "v" },
+]
+flag = [
+  { name = "sep", doc = "a string flag with no pass token", default = "," },
+]
+
+exec = [{ cmd = "printf", argv = [
+  # $name alone as an element renders fully: an arg becomes its value, a bool
+  # flag becomes its pass token, a string flag becomes pass then value.
+  "$value",
+
+  # ${name} does the same. Use the braces when a bare $name would swallow what
+  # follows: names may contain hyphens, so "$value-post" is read as one name
+  # called "value-post", not $value then "-post".
+  "pre-${value}-post",
+
+  # A $name embedded in a larger element substitutes only the bare value, so
+  # a flag's pass token is not used here.
+  "--sep=$sep",
+
+  # $$ is a literal dollar sign.
+  "$$HOME",
+]}]
+
+# An unset value with no default drops its element entirely rather than leaving
+# an empty string behind, which is why "$hidden" above vanishes when -H is not
+# given instead of becoming "".
+
+[cmd.cat]
+doc = "a required variadic arg"
+
+# variadic collects every remaining positional. Combined with required it needs
+# at least one. Reference it with the ... suffix, which must be the whole
+# element; "pre$files..." is rejected.
+arg = [
+  { name = "files", doc = "one or more files", required = true, variadic = true, complete = "files" },
+]
+exec = [{ cmd = "cat", argv = ["--", "$files..."] }]
+
+# ---------------------------------------------------------------------------
+# completion sources
+# ---------------------------------------------------------------------------
+
+[cmd.logs]
+doc = "completion from a program"
+
+arg = [
+  # An argv list runs that program and reads one candidate per line. Split a
+  # line on a tab to give the candidate a description. This is argv, not a
+  # shell string, for the same reason exec is.
+  { name     = "container",
+    doc      = "container name",
+    required = true,
+    complete = ["docker", "ps", "--format", "{{.Names}}"] },
+]
+exec = [{ cmd = "docker", argv = ["logs", "$container"] }]
+
+[cmd.into]
+doc = "the dirs builtin"
+
+# "files" and "dirs" are handed back to the shell as a directive, so its own
+# completion does the work rather than shelly reimplementing it.
+arg = [{ name = "dir", doc = "target directory", complete = "dirs" }]
+exec = [{ cmd = "ls", argv = ["$dir"] }]
+
+# ---------------------------------------------------------------------------
+# groups
+# ---------------------------------------------------------------------------
+
+# A command table with no exec is a group: it prints help listing its
+# subcommands. A group may not declare arg or flag, since it never runs
+# anything, and a command with subcommands may not also have exec — otherwise
+# `db shell` would be ambiguous between a subcommand and a positional arg.
+[cmd.db]
+doc = "database helpers"
+
+[cmd.db.shell]
+doc  = "open a psql shell"
+exec = [{ cmd = "psql", argv = ["-h", "localhost", "-U", "dev", "app"] }]
