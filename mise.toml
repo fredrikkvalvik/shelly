@@ -1,0 +1,26 @@
+[tasks.build]
+description = "build shelly into bin/"
+dir = "{{config_root}}"
+run = "go build -o bin/shelly ."
+# skip the rebuild when nothing that feeds it has changed
+sources = ["**/*.go", "go.mod", "go.sum"]
+outputs = ["bin/shelly"]
+
+[tasks.test]
+description = "run the test suite"
+dir = "{{config_root}}"
+run = "go test ./..."
+
+[tasks.check]
+description = "gofmt, vet and test, the pre-commit gate"
+dir = "{{config_root}}"
+run = [
+  'test -z "$(gofmt -l .)" || { echo "not gofmt clean:"; gofmt -l .; exit 1; }',
+  "go vet ./...",
+  "go test ./...",
+]
+
+[tasks.clean]
+description = "remove build output"
+dir = "{{config_root}}"
+run = "rm -rf bin"

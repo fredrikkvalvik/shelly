@@ -1,4 +1,5 @@
-# compiled binary, from `go build` in the module root
+# build output: bin/ from `mise run build`, /shelly from a bare `go build`
+/bin/
 /shelly
 
 # test and coverage artifacts
