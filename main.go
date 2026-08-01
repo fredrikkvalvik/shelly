@@ -116,8 +116,7 @@ func cmdRun(args []string) error {
 	}
 
 	err = command.Pipe(cmds[0], cmds[1:]...)
-	var pe *command.PipeError
-	if errors.As(err, &pe) {
+	if pe, ok := errors.AsType[*command.PipeError](err); ok {
 		// a shell takes the pipeline's status from its last stage, so an
 		// upstream program dying on a broken pipe is not a failure
 		return statusOf(pe.Last())
@@ -279,8 +278,7 @@ func statusOf(err error) error {
 	if err == nil {
 		return nil
 	}
-	var ee *exec.ExitError
-	if errors.As(err, &ee) {
+	if ee, ok := errors.AsType[*exec.ExitError](err); ok {
 		return exitStatus(ee.ExitCode())
 	}
 	return err
