@@ -85,8 +85,8 @@ no "which program does this flag belong to" key.
 | in `argv` | when set | when unset |
 |---|---|---|
 | `"<glob>"` — arg | `["*.go"]` | its `default`, else the element is dropped |
-| `"<hidden>"` — bool flag | `["--hidden"]` (its `pass`) | dropped |
-| `"<max>"` — string flag | `["--max-count", "5"]` (`pass`, value) | its `default`, else dropped |
+| `"<hidden>"` — bool flag | its `pass` tokens | dropped |
+| `"<max>"` — string flag | its `pass` tokens, then the value | its `default`, else dropped |
 | `"--sep=<sep>"` — embedded | `["--sep=;"]`, one element | dropped |
 | `"<files...>"` — variadic | every value | dropped |
 | `"<<literal>"` | a literal `<literal>` | — |
@@ -94,6 +94,27 @@ no "which program does this flag belong to" key.
 An unset value drops its whole element rather than leaving an empty string
 behind. Delimiters on both ends mean embedding is never ambiguous, so
 `"pre-<x>-post"` needs no escaping.
+
+`pass` may be a list, so one flag can gate a whole cluster of arguments rather
+than a single token:
+
+```toml
+flag = [{ name = "preview", short = "p", type = "bool", pass = [
+  "--preview", "bat --color=always {}",
+  "--preview-window", "right:60%",
+  "--border",
+]}]
+exec = [{ cmd = "fzf", argv = ["--height", "40%", "<preview>"] }]
+```
+
+```console
+$ ffzf find       -> fzf --height 40%
+$ ffzf find -p    -> fzf --height 40% --preview 'bat --color=always {}' \
+                         --preview-window right:60% --border
+```
+
+Each entry is its own argv element, so a multi-word one like the preview command
+is never split.
 
 ### The environment
 

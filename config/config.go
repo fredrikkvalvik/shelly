@@ -106,7 +106,7 @@ type Flag struct {
 	Short    string
 	Doc      string
 	Type     FlagType
-	Pass     string // literal token emitted ahead of the value
+	Pass     []string // literal tokens emitted ahead of the value
 	Default  string
 	Complete Complete
 }
@@ -322,7 +322,7 @@ func (l *loader) flags(c ctx, v any) ([]*Flag, error) {
 					}
 				}
 			case "pass":
-				f.Pass, err = asString(kc, it[k])
+				f.Pass, err = asStringList(kc, it[k])
 			case "default":
 				f.Default, err = asString(kc, it[k])
 			case "complete":
@@ -479,6 +479,19 @@ func asStrings(c ctx, v any) ([]string, error) {
 		out = append(out, s)
 	}
 	return out, nil
+}
+
+// a single string is shorthand for a one element list, so a flag that emits
+// one token does not have to be written as a list
+func asStringList(c ctx, v any) ([]string, error) {
+	if s, ok := v.(string); ok {
+		return []string{s}, nil
+	}
+	ss, err := asStrings(c, v)
+	if err != nil {
+		return nil, c.errf("want a string or a list of strings, got %s", kindOf(v))
+	}
+	return ss, nil
 }
 
 func asTables(c ctx, v any) ([]map[string]any, error) {

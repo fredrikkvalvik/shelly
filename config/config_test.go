@@ -83,7 +83,7 @@ func TestLoadTree(t *testing.T) {
 		t.Errorf("glob arg = %+v", glob)
 	}
 	hidden := search.Flag("hidden")
-	if hidden == nil || !hidden.IsBool() || hidden.Pass != "--hidden" {
+	if hidden == nil || !hidden.IsBool() || len(hidden.Pass) != 1 || hidden.Pass[0] != "--hidden" {
 		t.Errorf("hidden flag = %+v", hidden)
 	}
 	if search.FlagShort("H") != hidden {

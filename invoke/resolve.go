@@ -107,28 +107,36 @@ func resolveWhole(inv *Invocation, r config.Ref) ([]string, bool, error) {
 
 	if f := inv.Cmd.Flag(r.Name); f != nil {
 		v, set := inv.Flags[f.Name]
+
+		// pass is config authored, so it may reference the environment. it is
+		// a list, which lets one bool flag gate a whole cluster of arguments
+		pass := make([]string, 0, len(f.Pass)+1)
+		for _, p := range f.Pass {
+			e, ok := inv.expand(p)
+			if !ok {
+				return nil, false, nil
+			}
+			pass = append(pass, e)
+		}
+
 		if f.IsBool() {
 			if !set {
 				return nil, false, nil
 			}
-			return []string{f.Pass}, true, nil
+			return pass, true, nil
 		}
 		if !set {
 			if f.Default == "" {
 				return nil, false, nil
 			}
-			// a default comes from the config, so it may reference the
-			// environment; a value the user typed may not
+			// a default is config authored too; a value the user typed is not
 			d, ok := inv.expand(f.Default)
 			if !ok {
 				return nil, false, nil
 			}
 			v = d
 		}
-		if f.Pass != "" {
-			return []string{f.Pass, v}, true, nil
-		}
-		return []string{v}, true, nil
+		return append(pass, v), true, nil
 	}
 
 	return nil, false, fmt.Errorf("<%s> is not a declared arg or flag", r.Name)

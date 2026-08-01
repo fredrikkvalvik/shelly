@@ -54,14 +54,25 @@ flag = [
     type  = "bool",
     pass  = "--hidden" },
 
-  # type = "string" takes a value. With "pass" it renders as two argv elements,
-  # the token then the value. Without "pass" it renders as the bare value.
+  # type = "string" takes a value. Its pass tokens are emitted first, then the
+  # value. Without "pass" it renders as the bare value.
   { name    = "max",
     short   = "m",
     doc     = "limit the number of results",
     type    = "string",      # the default, so this key can be omitted
     pass    = "--max-count",
     default = "100" },       # used when the flag is absent; bool flags cannot have one
+
+  # "pass" may be a list, which lets one flag gate a whole cluster of
+  # arguments instead of just one. Each entry is its own argv element, so a
+  # multi word entry like the preview command below is not split.
+  { name  = "preview",
+    short = "p",
+    doc   = "show a preview pane",
+    type  = "bool",
+    pass  = ["--preview", "bat --color=always {}",
+             "--preview-window", "right:60%",
+             "--border"] },
 ]
 
 # The pipeline. Entries run concurrently and each pipes into the next, so this
@@ -74,7 +85,7 @@ exec = [
   { cmd  = "rg",
     argv = ["--files", "<hidden>", "<max>", "--glob", "<glob>"] },
   { cmd  = "fzf",
-    argv = ["--height", "40%", "--preview", "bat --color=always {}"] },
+    argv = ["--height", "40%", "<preview>"] },
 ]
 
 # ---------------------------------------------------------------------------

@@ -143,7 +143,7 @@ func validateFlags(c *Cmd, errf errfn) error {
 		}
 
 		if f.IsBool() {
-			if f.Pass == "" {
+			if len(f.Pass) == 0 {
 				return errf(`bool flag %q needs "pass", there is nothing to emit without it`, f.Name)
 			}
 			if f.Default != "" {
