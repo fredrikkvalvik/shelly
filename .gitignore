@@ -1,0 +1,15 @@
+# compiled binary, from `go build` in the module root
+/shelly
+
+# test and coverage artifacts
+*.test
+*.out
+*.prof
+
+# editors
+.idea/
+.vscode/
+*.swp
+
+# macOS
+.DS_Store
