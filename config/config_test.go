@@ -16,7 +16,7 @@ doc  = "fuzzy-pick a file matching a glob"
 arg  = [{ name = "glob",   default = "*", doc = "glob to match", complete = "files" }]
 flag = [{ name = "hidden", short = "H", type = "bool", pass = "--hidden", doc = "include hidden files" }]
 exec = [
-  { cmd = "rg",  argv = ["--files", "$hidden", "--glob", "$glob"] },
+  { cmd = "rg",  argv = ["--files", "<hidden>", "--glob", "<glob>"] },
   { cmd = "fzf", argv = ["--height", "40%", "--preview", "bat --color=always {}"] },
 ]
 
@@ -74,7 +74,7 @@ func TestLoadTree(t *testing.T) {
 	if len(search.Exec) != 2 || search.Exec[0].Cmd != "rg" || search.Exec[1].Cmd != "fzf" {
 		t.Errorf("exec = %+v", search.Exec)
 	}
-	if got := strings.Join(search.Exec[0].Argv, "|"); got != "--files|$hidden|--glob|$glob" {
+	if got := strings.Join(search.Exec[0].Argv, "|"); got != "--files|<hidden>|--glob|<glob>" {
 		t.Errorf("rg argv = %q", got)
 	}
 
@@ -145,15 +145,15 @@ exec = [{ cmd = "rm", argv = ["-r"] }]`,
 		name: "unknown reference",
 		src: `
 [cmd.x]
-exec = [{ cmd = "rm", argv = ["$nope"] }]`,
-		want: `$nope is not a declared arg or flag`,
+exec = [{ cmd = "rm", argv = ["<nope>"] }]`,
+		want: `<nope> is not a declared arg or flag`,
 	}, {
-		name: "bare reference swallows a trailing word",
+		name: "a hyphen after a reference is unambiguous now",
 		src: `
 [cmd.x]
 arg  = [{ name = "a" }]
-exec = [{ cmd = "echo", argv = ["$a-post"] }]`,
-		want: `(did you mean ${a}-post?)`,
+exec = [{ cmd = "echo", argv = ["<a>-post", "<nope>"] }]`,
+		want: `<nope> is not a declared arg or flag`,
 	}, {
 		name: "no exec and no subcommands",
 		src: `
@@ -174,35 +174,35 @@ exec = [{ cmd = "echo", argv = ["hi"] }]`,
 		src: `
 [cmd.x]
 flag = [{ name = "force", type = "bool" }]
-exec = [{ cmd = "rm", argv = ["$force"] }]`,
+exec = [{ cmd = "rm", argv = ["<force>"] }]`,
 		want: `bool flag "force" needs "pass"`,
 	}, {
 		name: "bool flag embedded",
 		src: `
 [cmd.x]
 flag = [{ name = "force", type = "bool", pass = "-f" }]
-exec = [{ cmd = "rm", argv = ["--x=$force"] }]`,
+exec = [{ cmd = "rm", argv = ["--x=<force>"] }]`,
 		want: `must be the whole element`,
 	}, {
 		name: "variadic not last",
 		src: `
 [cmd.x]
 arg  = [{ name = "a", variadic = true }, { name = "b" }]
-exec = [{ cmd = "echo", argv = ["$a...", "$b"] }]`,
+exec = [{ cmd = "echo", argv = ["<a...>", "<b>"] }]`,
 		want: `must be the last arg`,
 	}, {
 		name: "variadic referenced without ellipsis",
 		src: `
 [cmd.x]
 arg  = [{ name = "a", variadic = true }]
-exec = [{ cmd = "echo", argv = ["$a"] }]`,
-		want: `reference it as $a...`,
+exec = [{ cmd = "echo", argv = ["<a>"] }]`,
+		want: `reference it as <a...>`,
 	}, {
 		name: "required after optional",
 		src: `
 [cmd.x]
 arg  = [{ name = "a" }, { name = "b", required = true }]
-exec = [{ cmd = "echo", argv = ["$a", "$b"] }]`,
+exec = [{ cmd = "echo", argv = ["<a>", "<b>"] }]`,
 		want: `follows optional arg "a"`,
 	}, {
 		name: "duplicate short",
@@ -210,14 +210,14 @@ exec = [{ cmd = "echo", argv = ["$a", "$b"] }]`,
 [cmd.x]
 flag = [{ name = "aa", short = "a", type = "bool", pass = "-a" },
         { name = "bb", short = "a", type = "bool", pass = "-b" }]
-exec = [{ cmd = "echo", argv = ["$aa", "$bb"] }]`,
+exec = [{ cmd = "echo", argv = ["<aa>", "<bb>"] }]`,
 		want: `both use short "a"`,
 	}, {
 		name: "bad flag type",
 		src: `
 [cmd.x]
 flag = [{ name = "n", type = "int" }]
-exec = [{ cmd = "echo", argv = ["$n"] }]`,
+exec = [{ cmd = "echo", argv = ["<n>"] }]`,
 		want: `unknown flag type "int", want one of: bool, string`,
 	}, {
 		name: "unknown key",
@@ -230,7 +230,7 @@ exce = [{ cmd = "echo", argv = ["hi"] }]`,
 		src: `
 [cmd.x]
 arg  = [{ name = "a", require = true }]
-exec = [{ cmd = "echo", argv = ["$a"] }]`,
+exec = [{ cmd = "echo", argv = ["<a>"] }]`,
 		want: `unknown key "require", want one of: name, doc, default, required, variadic, complete`,
 	}, {
 		name: "reserved subcommand name",
@@ -277,15 +277,15 @@ func TestRefs(t *testing.T) {
 		names []string
 		whole bool
 	}{
-		{"$glob", []string{"glob"}, true},
-		{"$files...", []string{"files"}, true},
-		{"--glob=$glob", []string{"glob"}, false},
+		{"<glob>", []string{"glob"}, true},
+		{"<files...>", []string{"files"}, true},
+		{"--glob=<glob>", []string{"glob"}, false},
 		{"--files", nil, false},
-		{"$$literal", nil, false},
-		{"$a-$b", []string{"a", "b"}, false},
-		{"${glob}", []string{"glob"}, true},
-		{"pre-${x}-post", []string{"x"}, false},
-		{"${files...}", []string{"files"}, true},
+		{"<<literal>", nil, false},
+		{"<a>-<b>", []string{"a", "b"}, false},
+		{"<x>-post", []string{"x"}, false},
+		{"$HOME", nil, false},
+		{"awk {print $1}", nil, false},
 	}
 	for _, tc := range cases {
 		refs := Refs(tc.in)
@@ -302,10 +302,7 @@ func TestRefs(t *testing.T) {
 			t.Errorf("Refs(%q)[0].Whole = %v, want %v", tc.in, refs[0].Whole(tc.in), tc.whole)
 		}
 	}
-	if r := Refs("$files..."); len(r) == 1 && !r[0].Variadic {
-		t.Error("$files... should be variadic")
-	}
-	if got := Unescape("$$x"); got != "$x" {
-		t.Errorf("Unescape = %q, want \"$x\"", got)
+	if r := Refs("<files...>"); len(r) == 1 && !r[0].Variadic {
+		t.Error("<files...> should be variadic")
 	}
 }

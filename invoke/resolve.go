@@ -19,11 +19,15 @@ func (s Stage) String() string {
 
 // Resolve substitutes the invocation's values into each stage's argv.
 //
-// A $name that is the whole element renders fully: a bool flag becomes its
+// A <name> that is the whole element renders fully: a bool flag becomes its
 // pass token, a string flag becomes pass plus value, a variadic arg expands to
-// all its values. A $name embedded in a larger element substitutes only the
+// all its values. A <name> embedded in a larger element substitutes only the
 // raw value. Either way an unset value with no default drops the element,
 // never leaving an empty string behind.
+//
+// Config authored text around those references is expanded too, so $HOME and
+// ${HOME} become the environment's value. Values the user typed are never
+// rescanned, so an argument that happens to contain $HOME stays literal.
 func Resolve(inv *Invocation) ([]Stage, error) {
 	stages := make([]Stage, 0, len(inv.Cmd.Exec))
 
@@ -47,7 +51,8 @@ func Resolve(inv *Invocation) ([]Stage, error) {
 func resolveElem(inv *Invocation, elem string) ([]string, bool, error) {
 	refs := config.Refs(elem)
 	if len(refs) == 0 {
-		return []string{config.Unescape(elem)}, true, nil
+		s, ok := inv.expand(elem)
+		return []string{s}, ok, nil
 	}
 	if len(refs) == 1 && refs[0].Whole(elem) {
 		return resolveWhole(inv, refs[0])
@@ -56,7 +61,12 @@ func resolveElem(inv *Invocation, elem string) ([]string, bool, error) {
 	var b strings.Builder
 	pos := 0
 	for _, r := range refs {
-		b.WriteString(config.Unescape(elem[pos:r.Start]))
+		lit, ok := inv.expand(elem[pos:r.Start])
+		if !ok {
+			return nil, false, nil
+		}
+		b.WriteString(lit)
+
 		v, ok, err := rawValue(inv, r.Name)
 		if err != nil {
 			return nil, false, err
@@ -67,7 +77,12 @@ func resolveElem(inv *Invocation, elem string) ([]string, bool, error) {
 		b.WriteString(v)
 		pos = r.End
 	}
-	b.WriteString(config.Unescape(elem[pos:]))
+
+	lit, ok := inv.expand(elem[pos:])
+	if !ok {
+		return nil, false, nil
+	}
+	b.WriteString(lit)
 
 	return []string{b.String()}, true, nil
 }
@@ -84,7 +99,7 @@ func resolveWhole(inv *Invocation, r config.Ref) ([]string, bool, error) {
 		case len(vals) > 0:
 			return vals[:1], true, nil
 		case a.Default != "":
-			return []string{a.Default}, true, nil
+			return inv.expandOne(a.Default)
 		default:
 			return nil, false, nil
 		}
@@ -102,7 +117,13 @@ func resolveWhole(inv *Invocation, r config.Ref) ([]string, bool, error) {
 			if f.Default == "" {
 				return nil, false, nil
 			}
-			v = f.Default
+			// a default comes from the config, so it may reference the
+			// environment; a value the user typed may not
+			d, ok := inv.expand(f.Default)
+			if !ok {
+				return nil, false, nil
+			}
+			v = d
 		}
 		if f.Pass != "" {
 			return []string{f.Pass, v}, true, nil
@@ -110,7 +131,7 @@ func resolveWhole(inv *Invocation, r config.Ref) ([]string, bool, error) {
 		return []string{v}, true, nil
 	}
 
-	return nil, false, fmt.Errorf("$%s is not a declared arg or flag", r.Name)
+	return nil, false, fmt.Errorf("<%s> is not a declared arg or flag", r.Name)
 }
 
 // the bare value, for a reference embedded in a larger element
@@ -120,7 +141,8 @@ func rawValue(inv *Invocation, name string) (string, bool, error) {
 			return vals[0], true, nil
 		}
 		if a.Default != "" {
-			return a.Default, true, nil
+			s, ok := inv.expand(a.Default)
+			return s, ok, nil
 		}
 		return "", false, nil
 	}
@@ -128,16 +150,17 @@ func rawValue(inv *Invocation, name string) (string, bool, error) {
 	if f := inv.Cmd.Flag(name); f != nil {
 		if f.IsBool() {
 			// validation rejects this, so reaching it means a bug upstream
-			return "", false, fmt.Errorf("bool flag $%s cannot be embedded in an element", name)
+			return "", false, fmt.Errorf("bool flag <%s> cannot be embedded in an element", name)
 		}
 		if v, set := inv.Flags[name]; set {
 			return v, true, nil
 		}
 		if f.Default != "" {
-			return f.Default, true, nil
+			s, ok := inv.expand(f.Default)
+			return s, ok, nil
 		}
 		return "", false, nil
 	}
 
-	return "", false, fmt.Errorf("$%s is not a declared arg or flag", name)
+	return "", false, fmt.Errorf("<%s> is not a declared arg or flag", name)
 }

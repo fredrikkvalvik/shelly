@@ -52,7 +52,7 @@ doc  = "fuzzy-pick a file matching a glob"
 arg  = [{ name = "glob", default = "*", complete = "files" }]
 flag = [{ name = "hidden", short = "H", type = "bool", pass = "--hidden" }]
 exec = [
-  { cmd = "rg",  argv = ["--files", "$hidden", "--glob", "$glob"] },
+  { cmd = "rg",  argv = ["--files", "<hidden>", "--glob", "<glob>"] },
   { cmd = "fzf", argv = ["--height", "40%"] },
 ]
 
@@ -78,22 +78,49 @@ since `db shell` would then be ambiguous between a subcommand and a positional.
 
 ### Substitution
 
-`arg` and `flag` share one mechanism. **Position in `argv` decides both which
-stage a value lands on and where in that stage it appears**, so there is no
-"which program does this flag belong to" key.
+`arg` and `flag` are referenced as `<name>`. **Position in `argv` decides both
+which stage a value lands on and where in that stage it appears**, so there is
+no "which program does this flag belong to" key.
 
 | in `argv` | when set | when unset |
 |---|---|---|
-| `"$glob"` — arg | `["*.go"]` | its `default`, else the element is dropped |
-| `"$hidden"` — bool flag | `["--hidden"]` (its `pass`) | dropped |
-| `"$max"` — string flag | `["--max-count", "5"]` (`pass`, value) | its `default`, else dropped |
-| `"--sep=$sep"` — embedded | `["--sep=;"]`, one element | dropped |
-| `"$files..."` — variadic | every value | dropped |
-| `"$$HOME"` | a literal `$HOME` | — |
+| `"<glob>"` — arg | `["*.go"]` | its `default`, else the element is dropped |
+| `"<hidden>"` — bool flag | `["--hidden"]` (its `pass`) | dropped |
+| `"<max>"` — string flag | `["--max-count", "5"]` (`pass`, value) | its `default`, else dropped |
+| `"--sep=<sep>"` — embedded | `["--sep=;"]`, one element | dropped |
+| `"<files...>"` — variadic | every value | dropped |
+| `"<<literal>"` | a literal `<literal>` | — |
 
 An unset value drops its whole element rather than leaving an empty string
-behind. Write `${name}` when a bare `$name` would swallow what follows: names
-may contain hyphens, so `$x-post` reads as one name called `x-post`.
+behind. Delimiters on both ends mean embedding is never ambiguous, so
+`"pre-<x>-post"` needs no escaping.
+
+### The environment
+
+`$VAR` and `${VAR}` expand from the environment when the command runs, which is
+what keeps a config portable instead of hardcoding `/Users/you/...`:
+
+```toml
+exec = [{ cmd = "rg", argv = ["--ignore-file", "$HOME/.rgignore", "<glob>"] }]
+```
+
+Deliberately kept apart from `<name>`. Because the two namespaces do not
+overlap, a typo'd `<glbo>` is still a load-time error rather than silently
+becoming an empty environment lookup.
+
+Three rules worth knowing:
+
+- **Unset drops the element**, same as an unset arg — not the empty string. An
+  unset `$HOME` in `"--conf=$HOME/x"` removes that argument rather than passing
+  `--conf=/x`.
+- **`$1`, `$@`, `$?` are not environment references.** A name must start with a
+  letter or underscore, so `awk '{print $1}'` passes through untouched. (This
+  is why `os.ExpandEnv` is not used: it eats them.)
+- **Only text written in the config is expanded.** A value the user types is
+  never rescanned, so `ffzf search '$HOME'` delivers those five characters.
+
+Wrapped programs also inherit your environment, so anything a tool already
+reads for itself — `PGHOST`, `EDITOR`, `NO_COLOR` — needs no config at all.
 
 ### Nothing reaches a shell
 
@@ -121,9 +148,9 @@ interface is the whole interface, which is what makes help and completion
 exhaustive by construction.
 
 One limit worth naming: nothing stops you writing
-`{ cmd = "sh", argv = ["-c", "echo $x"] }`. shelly will not introduce a shell,
-but it cannot stop you invoking one, and a `$ref` embedded in that script
-string is back to being shell-interpreted.
+`{ cmd = "sh", argv = ["-c", "echo <x>"] }`. shelly will not introduce a shell,
+but it cannot stop you invoking one, and a `<name>` substituted into a script
+string you hand to `sh -c` is back to being shell-interpreted.
 
 ## Commands
 

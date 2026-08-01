@@ -72,7 +72,7 @@ flag = [
 # and there is nothing to quote or escape.
 exec = [
   { cmd  = "rg",
-    argv = ["--files", "$hidden", "$max", "--glob", "$glob"] },
+    argv = ["--files", "<hidden>", "<max>", "--glob", "<glob>"] },
   { cmd  = "fzf",
     argv = ["--height", "40%", "--preview", "bat --color=always {}"] },
 ]
@@ -92,37 +92,52 @@ flag = [
 ]
 
 exec = [{ cmd = "printf", argv = [
-  # $name alone as an element renders fully: an arg becomes its value, a bool
+  # <name> alone as an element renders fully: an arg becomes its value, a bool
   # flag becomes its pass token, a string flag becomes pass then value.
-  "$value",
+  "<value>",
 
-  # ${name} does the same. Use the braces when a bare $name would swallow what
-  # follows: names may contain hyphens, so "$value-post" is read as one name
-  # called "value-post", not $value then "-post".
-  "pre-${value}-post",
+  # Delimiters on both ends mean embedding is never ambiguous, so a name may
+  # contain hyphens and still be followed by more text.
+  "pre-<value>-post",
 
-  # A $name embedded in a larger element substitutes only the bare value, so
+  # A <name> embedded in a larger element substitutes only the bare value, so
   # a flag's pass token is not used here.
-  "--sep=$sep",
+  "--sep=<sep>",
 
-  # $$ is a literal dollar sign.
+  # << is a literal <, for the rare argument that looks like a reference.
+  "<<literal>",
+
+  # $VAR and ${VAR} come from the environment, expanded when the command runs.
+  # This is what keeps a config portable across machines instead of hardcoding
+  # /Users/you/... into it.
+  "$HOME/.config/reference",
+  "${XDG_CACHE_HOME}/reference",
+
+  # $$ is a literal dollar sign. Note that $1, $@ and $? are NOT environment
+  # references — the grammar requires a letter or underscore first — so an awk
+  # or sed program passed as an argument survives untouched.
   "$$HOME",
+  "{print $1}",
 ]}]
 
-# An unset value with no default drops its element entirely rather than leaving
-# an empty string behind, which is why "$hidden" above vanishes when -H is not
-# given instead of becoming "".
+# An unset value drops its element entirely rather than leaving an empty string
+# behind. That applies to args, to flags, and to $VAR alike, so an unset $HOME
+# above removes that element instead of producing a bare "/.config/reference".
+#
+# Environment expansion applies only to text written in this file. A value the
+# user types on the command line is never rescanned, so passing '$HOME' as an
+# argument delivers those five characters.
 
 [cmd.cat]
 doc = "a required variadic arg"
 
 # variadic collects every remaining positional. Combined with required it needs
-# at least one. Reference it with the ... suffix, which must be the whole
-# element; "pre$files..." is rejected.
+# at least one. Reference it with the ... suffix inside the delimiters, which
+# must be the whole element; "pre-<files...>" is rejected.
 arg = [
   { name = "files", doc = "one or more files", required = true, variadic = true, complete = "files" },
 ]
-exec = [{ cmd = "cat", argv = ["--", "$files..."] }]
+exec = [{ cmd = "cat", argv = ["--", "<files...>"] }]
 
 # ---------------------------------------------------------------------------
 # completion sources
@@ -140,7 +155,7 @@ arg = [
     required = true,
     complete = ["docker", "ps", "--format", "{{.Names}}"] },
 ]
-exec = [{ cmd = "docker", argv = ["logs", "$container"] }]
+exec = [{ cmd = "docker", argv = ["logs", "<container>"] }]
 
 [cmd.into]
 doc = "the dirs builtin"
@@ -148,7 +163,7 @@ doc = "the dirs builtin"
 # "files" and "dirs" are handed back to the shell as a directive, so its own
 # completion does the work rather than shelly reimplementing it.
 arg = [{ name = "dir", doc = "target directory", complete = "dirs" }]
-exec = [{ cmd = "ls", argv = ["$dir"] }]
+exec = [{ cmd = "ls", argv = ["<dir>"] }]
 
 # ---------------------------------------------------------------------------
 # groups

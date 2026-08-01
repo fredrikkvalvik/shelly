@@ -3,6 +3,10 @@
 // A file defines exactly one tool. Dotted table headers are command paths, so
 // [cmd.db.shell] declares the command "db shell". A command table holds the
 // reserved keys doc/arg/flag/exec; every other key in it is a subcommand.
+//
+// Inside an argv element, <name> refers to a declared arg or flag and $VAR to
+// an environment variable. Keeping those namespaces apart is what lets an
+// unknown <name> stay a load time error.
 package config
 
 import (

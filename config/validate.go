@@ -7,8 +7,8 @@ import (
 )
 
 // names appear both on the command line and in generated shell function names.
-// hyphens are allowed inside a name but not at either end, which is what keeps
-// "$a-$b" unambiguous
+// hyphens are allowed inside a name but not at either end, so --dry-run works
+// without a name being able to trail off into punctuation
 const namePat = `[A-Za-z_](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?`
 
 var nameRe = regexp.MustCompile(`^` + namePat + `$`)
@@ -154,22 +154,7 @@ func validateFlags(c *Cmd, errf errfn) error {
 	return nil
 }
 
-// the bare form takes the longest match, so "$x-post" swallows a trailing
-// hyphenated word. if a declared name is hiding in there, say so
-func braceHint(c *Cmd, name string) string {
-	for i, r := range name {
-		if r != '-' {
-			continue
-		}
-		head := name[:i]
-		if c.Arg(head) != nil || c.Flag(head) != nil {
-			return fmt.Sprintf(" (did you mean ${%s}%s?)", head, name[i:])
-		}
-	}
-	return ""
-}
-
-// every $name must resolve, and every declared arg and flag must be used
+// every <name> must resolve, and every declared arg and flag must be used
 func validateRefs(c *Cmd, errf errfn) error {
 	used := map[string]bool{}
 
@@ -182,26 +167,26 @@ func validateRefs(c *Cmd, errf errfn) error {
 				flag := c.Flag(r.Name)
 				switch {
 				case arg == nil && flag == nil:
-					return errf("%s: $%s is not a declared arg or flag%s", at, r.Name, braceHint(c, r.Name))
+					return errf("%s: <%s> is not a declared arg or flag", at, r.Name)
 				case arg != nil && flag != nil:
-					return errf("$%s is declared as both an arg and a flag", r.Name)
+					return errf("<%s> is declared as both an arg and a flag", r.Name)
 				}
 				used[r.Name] = true
 
 				switch {
 				case arg != nil && arg.Variadic && !r.Variadic:
-					return errf("%s: arg %q is variadic, reference it as $%s...", at, r.Name, r.Name)
+					return errf("%s: arg %q is variadic, reference it as <%s...>", at, r.Name, r.Name)
 				case arg != nil && !arg.Variadic && r.Variadic:
-					return errf("%s: arg %q is not variadic, reference it as $%s", at, r.Name, r.Name)
+					return errf("%s: arg %q is not variadic, reference it as <%s>", at, r.Name, r.Name)
 				case flag != nil && r.Variadic:
 					return errf("%s: flag %q cannot be variadic", at, r.Name)
 				}
 
 				if r.Variadic && !r.Whole(elem) {
-					return errf("%s: $%s... must be the whole element, not embedded in %q", at, r.Name, elem)
+					return errf("%s: <%s...> must be the whole element, not embedded in %q", at, r.Name, elem)
 				}
 				if flag != nil && flag.IsBool() && !r.Whole(elem) {
-					return errf("%s: bool flag $%s must be the whole element, not embedded in %q", at, r.Name, elem)
+					return errf("%s: bool flag <%s> must be the whole element, not embedded in %q", at, r.Name, elem)
 				}
 			}
 		}

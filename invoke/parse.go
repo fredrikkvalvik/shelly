@@ -3,6 +3,7 @@ package invoke
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/fredrikkvalvik/shelly/config"
@@ -15,11 +16,33 @@ type Invocation struct {
 	Args  map[string][]string // declared arg name to the values given
 	Flags map[string]string   // declared flag name to its value; "" for a bool
 	Help  bool
+
+	// how $VAR is looked up. Parse points this at the real environment; tests
+	// substitute their own
+	Env func(string) (string, bool)
 }
 
 func (i *Invocation) FlagSet(name string) bool {
 	_, ok := i.Flags[name]
 	return ok
+}
+
+// expand resolves config authored text: << and $$ escapes, and $VAR from the
+// environment. It reports false when a referenced variable is unset.
+func (i *Invocation) expand(s string) (string, bool) {
+	env := i.Env
+	if env == nil {
+		env = os.LookupEnv
+	}
+	return config.ExpandLiteral(s, env)
+}
+
+func (i *Invocation) expandOne(s string) ([]string, bool, error) {
+	v, ok := i.expand(s)
+	if !ok {
+		return nil, false, nil
+	}
+	return []string{v}, true, nil
 }
 
 // Parse walks the command tree, then reads flags and positional args for the
