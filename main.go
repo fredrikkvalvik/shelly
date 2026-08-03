@@ -22,6 +22,7 @@ import (
 	"github.com/fredrikkvalvik/shelly/invoke"
 	"github.com/fredrikkvalvik/shelly/project"
 	"github.com/fredrikkvalvik/shelly/shellgen"
+	"github.com/fredrikkvalvik/shelly/trust"
 )
 
 const usage = `shelly turns tools on PATH into command hierarchies.
@@ -34,6 +35,8 @@ usage:
   shelly check [FILE...]                validate configs and report name collisions
   shelly hook [zsh|bash]                emit the prompt hook for project tools
   shelly export [zsh|bash] --pid N      what the shell must load or drop here
+  shelly trust [DIR]                    approve a .shelly directory's tools
+  shelly untrust [DIR]                  withdraw that approval
 
 put this in your shell rc file:
   eval "$(shelly init zsh)"
@@ -81,6 +84,10 @@ func run(args []string) error {
 		return cmdHook(args[1:])
 	case "export":
 		return cmdExport(args[1:])
+	case "trust":
+		return cmdTrust(args[1:])
+	case "untrust":
+		return cmdUntrust(args[1:])
 	case "help", "-h", "--help":
 		fmt.Printf(usage, configDir())
 		return nil
@@ -336,11 +343,7 @@ func cmdExport(args []string) error {
 		globalTools(),
 		project.Discover(cwd, home),
 		loaded,
-		// the trust store lands next; until then nothing discovered may run
-		func(d project.Dir) (bool, string) {
-			return false, fmt.Sprintf("shelly: %s is not trusted, %s not loaded",
-				d.Path, plural(len(d.Tools), "tool"))
-		},
+		trustCheck(),
 	)
 
 	var b strings.Builder
@@ -517,4 +520,118 @@ func missing(c *config.Cmd) []string {
 	walk(c)
 
 	return out
+}
+
+// where approvals live, following the XDG state convention
+func trustPath() string {
+	if d := os.Getenv("SHELLY_STATE_DIR"); d != "" {
+		return filepath.Join(d, "trust")
+	}
+	if d := os.Getenv("XDG_STATE_HOME"); d != "" {
+		return filepath.Join(d, "shelly", "trust")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".local", "state", "shelly", "trust")
+	}
+	return filepath.Join(home, ".local", "state", "shelly", "trust")
+}
+
+// trustCheck answers the planner. A store that will not open denies
+// everything: failing open would defeat the point of having it.
+func trustCheck() project.TrustFunc {
+	store, err := trust.Open(trustPath())
+	if err != nil {
+		return func(d project.Dir) (bool, string) {
+			return false, fmt.Sprintf("shelly: cannot read the trust store, %s not loaded: %v", d.Path, err)
+		}
+	}
+
+	return func(d project.Dir) (bool, string) {
+		ok, why := store.Verify(files(d))
+		if ok {
+			return true, ""
+		}
+		return false, fmt.Sprintf("shelly: %s %s, %s not loaded (run `shelly trust`)",
+			d.Path, why, plural(len(d.Tools), "tool"))
+	}
+}
+
+func files(d project.Dir) []string {
+	out := make([]string, 0, len(d.Tools))
+	for _, t := range d.Tools {
+		out = append(out, t.File)
+	}
+	return out
+}
+
+func cmdTrust(args []string) error {
+	dir, err := targetDir(args)
+	if err != nil {
+		return err
+	}
+
+	store, err := trust.Open(trustPath())
+	if err != nil {
+		return err
+	}
+	if err := store.Allow(files(dir)); err != nil {
+		return err
+	}
+
+	fmt.Printf("trusted %s\n", dir.Path)
+	for _, t := range dir.Tools {
+		fmt.Printf("  %-24s %s\n", filepath.Base(t.File), store.Digest(t.File)[:8])
+	}
+	return nil
+}
+
+func cmdUntrust(args []string) error {
+	dir, err := targetDir(args)
+	if err != nil {
+		return err
+	}
+
+	store, err := trust.Open(trustPath())
+	if err != nil {
+		return err
+	}
+	n, err := store.Revoke(dir.Path)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		fmt.Printf("%s was not trusted\n", dir.Path)
+		return nil
+	}
+
+	fmt.Printf("untrusted %s (%s)\n", dir.Path, plural(n, "config"))
+	return nil
+}
+
+// targetDir resolves the .shelly directory a trust command applies to: the
+// one given, or the nearest one at or above the working directory
+func targetDir(args []string) (project.Dir, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return project.Dir{}, err
+	}
+	if len(args) > 0 {
+		cwd, err = filepath.Abs(args[0])
+		if err != nil {
+			return project.Dir{}, err
+		}
+		cwd = strings.TrimSuffix(cwd, string(filepath.Separator)+project.DirName)
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return project.Dir{}, err
+	}
+
+	dirs := project.Discover(cwd, home)
+	if len(dirs) == 0 {
+		return project.Dir{}, fmt.Errorf("no %s directory at or above %s", project.DirName, cwd)
+	}
+	return dirs[len(dirs)-1], nil // innermost
 }

@@ -156,6 +156,63 @@ rg --files --glob '$(rm -rf ~)'      # one argument, uninterpreted
 There is no quoting to get right because there is no shell to quote for. This
 is the property the whole design exists to preserve.
 
+## Project tools
+
+A directory can carry its own tools in a `.shelly/` dir. Add the hook alongside
+`init`:
+
+```sh
+eval "$(shelly hook zsh)"
+```
+
+Each prompt, shelly walks up from `$PWD` to `$HOME`, collects every `.shelly`
+directory, and defines or drops functions so that what is callable matches where
+you are:
+
+```console
+$ cd ~/work/api
+shelly: ~/work/api/.shelly not trusted, 2 tools not loaded (run `shelly trust`)
+$ shelly trust
+trusted ~/work/api/.shelly
+  deploy.toml   eb2490d4
+  db.toml       7c1f0a35
+$ deploy staging
+$ cd ~            # deploy is gone again
+```
+
+Precedence is outermost to innermost — global, then `~/.shelly`, then the
+project's — and the desired set is recomputed in full each time, so leaving a
+directory restores whatever its tools were shadowing.
+
+No daemon is involved. A shell can only redefine its own functions by `eval`ing
+at a prompt, so there is nobody for a watcher to push to, and editing a config
+already takes effect on the next call because the function bakes its *path*.
+The whole thing costs about 4ms per prompt, essentially all of it process
+startup.
+
+### Trust
+
+**Walking into a directory does not let it define commands.** A cloned repo can
+carry a `.shelly/ls.toml`, and shelly configs run arbitrary programs by design,
+so auto-loading whatever you `cd` past would be remote code execution.
+
+Approval is recorded per file, keyed on **contents** rather than path:
+
+```console
+$ git pull        # someone edited deploy.toml
+$ cd .
+shelly: ~/work/api/.shelly changed since you trusted it: deploy.toml,
+        2 tools not loaded (run `shelly trust`)
+```
+
+A new file appearing in an approved directory is not covered by that approval
+either, and restoring a file's original contents restores its trust, since
+nothing tracks edits — only what the bytes are.
+
+Approvals live in `$XDG_STATE_HOME/shelly/trust` (mode 600). `shelly untrust`
+withdraws them for a directory. `~/.config/shelly` never needs trusting: it is
+your own config, not something a directory brought with it.
+
 ## What it deliberately cannot do
 
 No redirection, no `&&`, no `||`, no environment prefixes, no `sh -c` escape
@@ -182,6 +239,10 @@ string you hand to `sh -c` is back to being shell-interpreted.
 | `shelly load [--shell SH] FILE...` | emit shell code for specific configs |
 | `shelly complete --config FILE ...` | completion candidates, called on TAB |
 | `shelly check [FILE...]` | validate configs, report shadowing and missing programs |
+| `shelly hook [zsh\|bash]` | emit the prompt hook that registers project tools |
+| `shelly export [zsh\|bash]` | what the shell must load or drop here; called by the hook |
+| `shelly trust [DIR]` | approve a `.shelly` directory's tools |
+| `shelly untrust [DIR]` | withdraw that approval |
 
 Configs live in `$SHELLY_CONFIG_DIR`, else `$XDG_CONFIG_HOME/shelly`, else
 `~/.config/shelly`.
