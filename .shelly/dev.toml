@@ -1,0 +1,54 @@
+doc = "development tasks for shelly itself"
+
+# Dogfooding note: two of these defer to mise rather than calling go directly,
+# and both times for a reason shelly cannot currently fix.
+#
+#   check  needs to run gofmt, then vet, then test, stopping on the first
+#          failure. exec is a pipeline, not a sequence, and there is no && .
+#   clean  needs to run at the project root. `rm -rf bin` from a subdirectory
+#          would delete the wrong bin, and no stage can set its own directory.
+#
+# Everything below is likewise only correct from the repository root.
+
+[cmd.build]
+doc = "build shelly into bin/"
+flag = [
+  { name = "race", short = "r", type = "bool", doc = "build with the race detector", pass = "-race" },
+]
+exec = [{ cmd = "go", argv = ["build", "<race>", "-o", "bin/shelly", "."] }]
+
+[cmd.test]
+doc = "run the test suite"
+arg = [
+  { name = "pkg", doc = "package pattern", default = "./..." },
+]
+flag = [
+  { name = "race", short = "r", type = "bool", doc = "enable the race detector", pass = "-race" },
+  { name = "verbose", short = "v", type = "bool", doc = "show every test", pass = "-v" },
+  { name = "run", short = "n", doc = "only tests matching this regex", pass = "-run" },
+  { name = "count", short = "c", doc = "run each test this many times", pass = "-count" },
+]
+exec = [{ cmd = "go", argv = ["test", "<race>", "<verbose>", "<run>", "<count>", "<pkg>"] }]
+
+[cmd.vet]
+doc = "run go vet"
+arg = [{ name = "pkg", doc = "package pattern", default = "./..." }]
+exec = [{ cmd = "go", argv = ["vet", "<pkg>"] }]
+
+[cmd.fmt]
+doc = "list files that are not gofmt clean"
+flag = [
+  { name = "write", short = "w", type = "bool", doc = "rewrite them in place", pass = "-w" },
+]
+exec = [{ cmd = "gofmt", argv = ["-l", "<write>", "."] }]
+
+[cmd.check]
+doc = "gofmt, vet and test, the pre-commit gate"
+# sequencing lives in mise: exec pipes, it does not chain
+exec = [{ cmd = "mise", argv = ["run", "check"] }]
+
+[cmd.clean]
+doc = "remove build output"
+# mise pins the working directory to the config root; a bare rm here would
+# delete whichever bin/ happened to be next to you
+exec = [{ cmd = "mise", argv = ["run", "clean"] }]
