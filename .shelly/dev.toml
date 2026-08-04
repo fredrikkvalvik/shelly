@@ -11,40 +11,49 @@ doc = "development tasks for shelly itself"
 # Everything below is likewise only correct from the repository root.
 
 [cmd.build]
-doc = "build shelly into bin/"
-flag = ["-r --race -> -race  # build with the race detector"]
-exec = [{ cmd = "go", argv = ["build", "%{race}", "-o", "bin/shelly", "."] }]
+  doc = "build shelly into bin/"
+  flag = ["-r --race -> -race  # build with the race detector"]
+  exec = [{ cmd = "go", argv = ["build", "%{race}", "-o", "bin/shelly", "."] }]
 
 [cmd.test]
-doc = "run the test suite"
-arg = [{ spec = "[pkg] # package pattern", default = "./..." }]
-# go spells its flags with one dash, which is exactly what -> is for: without
-# it these would emit --race and --run
-flag = [
-  "-r --race        -> -race   # enable the race detector",
-  "-v --verbose     -> -v      # show every test",
-  "-n --run <regex> -> -run    # only tests matching this regex",
-  "-c --count <n>   -> -count  # run each test this many times",
-]
-exec = [{ cmd = "go", argv = ["test", "%{race}", "%{verbose}", "%{run}", "%{count}", "%{pkg}"] }]
+  doc = "run the test suite"
+  arg = [{ spec = "[pkg] # package pattern", default = "./..." }]
+  # go spells its flags with one dash, which is exactly what -> is for: without
+  # it these would emit --race and --run
+  flag = [
+    "-r --race        -> -race   # enable the race detector",
+    "-v --verbose     -> -v      # show every test",
+    "-n --run <regex> -> -run    # only tests matching this regex",
+    "-c --count <n>   -> -count  # run each test this many times",
+  ]
+  exec = [
+    { cmd = "go", argv = [
+      "test",
+      "%{race}",
+      "%{verbose}",
+      "%{run}",
+      "%{count}",
+      "%{pkg}"
+    ] }
+  ]
 
 [cmd.vet]
-doc = "run go vet"
-arg = [{ spec = "[pkg]", doc = "package pattern", default = "./..." }]
-exec = [{ cmd = "go", argv = ["vet", "%{pkg}"] }]
+  doc = "run go vet"
+  arg = [{ spec = "[pkg]", doc = "package pattern", default = "./..." }]
+  exec = [{ cmd = "go", argv = ["vet", "%{pkg}"] }]
 
 [cmd.fmt]
-doc = "list files that are not gofmt clean"
-flag = ["-w --write -> -w  # rewrite them in place"]
-exec = [{ cmd = "gofmt", argv = ["-l", "%{write}", "."] }]
+  doc = "list files that are not gofmt clean"
+  flag = ["-w --write -> -w  # rewrite them in place"]
+  exec = [{ cmd = "gofmt", argv = ["-l", "%{write}", "."] }]
 
 [cmd.check]
-doc = "gofmt, vet and test, the pre-commit gate"
-# sequencing lives in mise: exec pipes, it does not chain
-exec = [{ cmd = "mise", argv = ["run", "check"] }]
+  doc = "gofmt, vet and test, the pre-commit gate"
+  # sequencing lives in mise: exec pipes, it does not chain
+  exec = [{ cmd = "mise", argv = ["run", "check"] }]
 
 [cmd.clean]
-doc = "remove build output"
-# mise pins the working directory to the config root; a bare rm here would
-# delete whichever bin/ happened to be next to you
-exec = [{ cmd = "mise", argv = ["run", "clean"] }]
+  doc = "remove build output"
+  # mise pins the working directory to the config root; a bare rm here would
+  # delete whichever bin/ happened to be next to you
+  exec = [{ cmd = "mise", argv = ["run", "clean"] }]
