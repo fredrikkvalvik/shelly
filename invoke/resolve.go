@@ -139,7 +139,7 @@ func resolveWhole(inv *Invocation, r config.Ref) ([]string, bool, error) {
 		return append(pass, v), true, nil
 	}
 
-	return nil, false, fmt.Errorf("<%s> is not a declared arg or flag", r.Name)
+	return nil, false, fmt.Errorf("%%{%s} is not a declared arg or flag", r.Name)
 }
 
 // the bare value, for a reference embedded in a larger element
@@ -158,7 +158,7 @@ func rawValue(inv *Invocation, name string) (string, bool, error) {
 	if f := inv.Cmd.Flag(name); f != nil {
 		if f.IsBool() {
 			// validation rejects this, so reaching it means a bug upstream
-			return "", false, fmt.Errorf("bool flag <%s> cannot be embedded in an element", name)
+			return "", false, fmt.Errorf("bool flag %%{%s} cannot be embedded in an element", name)
 		}
 		if v, set := inv.Flags[name]; set {
 			return v, true, nil
@@ -170,5 +170,5 @@ func rawValue(inv *Invocation, name string) (string, bool, error) {
 		return "", false, nil
 	}
 
-	return "", false, fmt.Errorf("<%s> is not a declared arg or flag", name)
+	return "", false, fmt.Errorf("%%{%s} is not a declared arg or flag", name)
 }

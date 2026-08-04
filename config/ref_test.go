@@ -35,7 +35,7 @@ func TestExpandLiteral(t *testing.T) {
 
 		// escapes
 		{"$$HOME", "$HOME", true},
-		{"<<literal>", "<literal>", true},
+		{"%%{literal}", "%{literal}", true},
 		{"$$", "$", true},
 
 		// shell special vars are NOT environment references, so an awk or sed
@@ -64,12 +64,12 @@ func TestRefsAndEnvDoNotOverlap(t *testing.T) {
 	if refs := Refs("$HOME"); len(refs) != 0 {
 		t.Errorf("Refs(\"$HOME\") = %+v, want none", refs)
 	}
-	if refs := Refs("<glob>"); len(refs) != 1 || refs[0].Name != "glob" {
-		t.Errorf("Refs(\"<glob>\") = %+v", refs)
+	if refs := Refs("%{glob}"); len(refs) != 1 || refs[0].Name != "glob" {
+		t.Errorf("Refs(%q) = %+v", "%{glob}", refs)
 	}
 
-	got, ok := ExpandLiteral("<glob>", env(map[string]string{"glob": "no"}))
-	if !ok || got != "<glob>" {
-		t.Errorf("ExpandLiteral saw a <name> reference: got %q, ok=%v", got, ok)
+	got, ok := ExpandLiteral("%{glob}", env(map[string]string{"glob": "no"}))
+	if !ok || got != "%{glob}" {
+		t.Errorf("ExpandLiteral saw a %%{name} reference: got %q, ok=%v", got, ok)
 	}
 }

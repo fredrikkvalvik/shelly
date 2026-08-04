@@ -52,7 +52,7 @@ doc  = "fuzzy-pick a file matching a glob"
 arg  = [{ name = "glob", default = "*", complete = "files" }]
 flag = [{ name = "hidden", short = "H", type = "bool", pass = "--hidden" }]
 exec = [
-  { cmd = "rg",  argv = ["--files", "<hidden>", "--glob", "<glob>"] },
+  { cmd = "rg",  argv = ["--files", "%{hidden}", "--glob", "%{glob}"] },
   { cmd = "fzf", argv = ["--height", "40%"] },
 ]
 
@@ -78,22 +78,23 @@ since `db shell` would then be ambiguous between a subcommand and a positional.
 
 ### Substitution
 
-`arg` and `flag` are referenced as `<name>`. **Position in `argv` decides both
+`arg` and `flag` are referenced from `argv` as `%{name}`. **Position in `argv` decides both
 which stage a value lands on and where in that stage it appears**, so there is
 no "which program does this flag belong to" key.
 
 | in `argv` | when set | when unset |
 |---|---|---|
-| `"<glob>"` — arg | `["*.go"]` | its `default`, else the element is dropped |
-| `"<hidden>"` — bool flag | its `pass` tokens | dropped |
-| `"<max>"` — string flag | its `pass` tokens, then the value | its `default`, else dropped |
-| `"--sep=<sep>"` — embedded | `["--sep=;"]`, one element | dropped |
-| `"<files...>"` — variadic | every value | dropped |
-| `"<<literal>"` | a literal `<literal>` | — |
+| `"%{glob}"` — arg | `["*.go"]` | its `default`, else the element is dropped |
+| `"%{hidden}"` — bool flag | its `pass` tokens | dropped |
+| `"%{max}"` — string flag | its `pass` tokens, then the value | its `default`, else dropped |
+| `"--sep=%{sep}"` — embedded | `["--sep=;"]`, one element | dropped |
+| `"%{files...}"` — variadic | every value | dropped |
+| `"%%{literal}"` | a literal `%{literal}` | — |
 
 An unset value drops its whole element rather than leaving an empty string
 behind. Delimiters on both ends mean embedding is never ambiguous, so
-`"pre-<x>-post"` needs no escaping.
+`"pre-%{x}-post"` needs no escaping. Only the opener doubles to escape, which
+leaves `printf`'s own `%%` alone.
 
 `pass` may be a list, so one flag can gate a whole cluster of arguments rather
 than a single token:
@@ -104,7 +105,7 @@ flag = [{ name = "preview", short = "p", type = "bool", pass = [
   "--preview-window", "right:60%",
   "--border",
 ]}]
-exec = [{ cmd = "fzf", argv = ["--height", "40%", "<preview>"] }]
+exec = [{ cmd = "fzf", argv = ["--height", "40%", "%{preview}"] }]
 ```
 
 ```console
@@ -122,11 +123,11 @@ is never split.
 what keeps a config portable instead of hardcoding `/Users/you/...`:
 
 ```toml
-exec = [{ cmd = "rg", argv = ["--ignore-file", "$HOME/.rgignore", "<glob>"] }]
+exec = [{ cmd = "rg", argv = ["--ignore-file", "$HOME/.rgignore", "%{glob}"] }]
 ```
 
 Deliberately kept apart from `<name>`. Because the two namespaces do not
-overlap, a typo'd `<glbo>` is still a load-time error rather than silently
+overlap, a typo'd `%{glbo}` is still a load-time error rather than silently
 becoming an empty environment lookup.
 
 Three rules worth knowing:
@@ -226,7 +227,7 @@ interface is the whole interface, which is what makes help and completion
 exhaustive by construction.
 
 One limit worth naming: nothing stops you writing
-`{ cmd = "sh", argv = ["-c", "echo <x>"] }`. shelly will not introduce a shell,
+`{ cmd = "sh", argv = ["-c", "echo %{x}"] }`. shelly will not introduce a shell,
 but it cannot stop you invoking one, and a `<name>` substituted into a script
 string you hand to `sh -c` is back to being shell-interpreted.
 

@@ -83,9 +83,9 @@ flag = [
 # and there is nothing to quote or escape.
 exec = [
   { cmd  = "rg",
-    argv = ["--files", "<hidden>", "<max>", "--glob", "<glob>"] },
+    argv = ["--files", "%{hidden}", "%{max}", "--glob", "%{glob}"] },
   { cmd  = "fzf",
-    argv = ["--height", "40%", "<preview>"] },
+    argv = ["--height", "40%", "%{preview}"] },
 ]
 
 # ---------------------------------------------------------------------------
@@ -103,20 +103,21 @@ flag = [
 ]
 
 exec = [{ cmd = "printf", argv = [
-  # <name> alone as an element renders fully: an arg becomes its value, a bool
+  # %{name} alone as an element renders fully: an arg becomes its value, a bool
   # flag becomes its pass token, a string flag becomes pass then value.
-  "<value>",
+  "%{value}",
 
   # Delimiters on both ends mean embedding is never ambiguous, so a name may
   # contain hyphens and still be followed by more text.
-  "pre-<value>-post",
+  "pre-%{value}-post",
 
-  # A <name> embedded in a larger element substitutes only the bare value, so
+  # A %{name} embedded in a larger element substitutes only the bare value, so
   # a flag's pass token is not used here.
-  "--sep=<sep>",
+  "--sep=%{sep}",
 
-  # << is a literal <, for the rare argument that looks like a reference.
-  "<<literal>",
+  # %%{ is a literal %{, for the rare argument that looks like a reference. Only
+  # the opener doubles, so printf's own %% is left alone.
+  "%%{literal}",
 
   # $VAR and ${VAR} come from the environment, expanded when the command runs.
   # This is what keeps a config portable across machines instead of hardcoding
@@ -144,11 +145,11 @@ doc = "a required variadic arg"
 
 # variadic collects every remaining positional. Combined with required it needs
 # at least one. Reference it with the ... suffix inside the delimiters, which
-# must be the whole element; "pre-<files...>" is rejected.
+# must be the whole element; "pre-%{files...}" is rejected.
 arg = [
   { name = "files", doc = "one or more files", required = true, variadic = true, complete = "files" },
 ]
-exec = [{ cmd = "cat", argv = ["--", "<files...>"] }]
+exec = [{ cmd = "cat", argv = ["--", "%{files...}"] }]
 
 # ---------------------------------------------------------------------------
 # completion sources
@@ -166,7 +167,7 @@ arg = [
     required = true,
     complete = ["docker", "ps", "--format", "{{.Names}}"] },
 ]
-exec = [{ cmd = "docker", argv = ["logs", "<container>"] }]
+exec = [{ cmd = "docker", argv = ["logs", "%{container}"] }]
 
 [cmd.into]
 doc = "the dirs builtin"
@@ -174,7 +175,7 @@ doc = "the dirs builtin"
 # "files" and "dirs" are handed back to the shell as a directive, so its own
 # completion does the work rather than shelly reimplementing it.
 arg = [{ name = "dir", doc = "target directory", complete = "dirs" }]
-exec = [{ cmd = "ls", argv = ["<dir>"] }]
+exec = [{ cmd = "ls", argv = ["%{dir}"] }]
 
 # ---------------------------------------------------------------------------
 # groups

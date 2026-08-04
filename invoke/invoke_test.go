@@ -22,17 +22,17 @@ flag = [
   { name = "sep",    default = "," },
 ]
 exec = [
-  { cmd = "rg",  argv = ["--files", "<hidden>", "<max>", "--glob", "<glob>", "--sep=<sep>"] },
+  { cmd = "rg",  argv = ["--files", "%{hidden}", "%{max}", "--glob", "%{glob}", "--sep=%{sep}"] },
   { cmd = "fzf", argv = ["--height", "40%"] },
 ]
 
 [cmd.cat]
 arg  = [{ name = "files", variadic = true, required = true }]
-exec = [{ cmd = "cat", argv = ["--", "<files...>"] }]
+exec = [{ cmd = "cat", argv = ["--", "%{files...}"] }]
 
 [cmd.lit]
 arg  = [{ name = "x", default = "d" }]
-exec = [{ cmd = "echo", argv = ["<<notaref>", "pre-<x>-post", "<x>"] }]
+exec = [{ cmd = "echo", argv = ["%%{notaref}", "pre-%{x}-post", "%{x}"] }]
 
 [cmd.db]
 doc = "database helpers"
@@ -113,10 +113,10 @@ func TestResolve(t *testing.T) {
 		want: "rg --files --glob -weird --sep=, | fzf --height 40%",
 	}, {
 		argv: []string{"lit"},
-		want: "echo <notaref> pre-d-post d",
+		want: "echo %{notaref} pre-d-post d",
 	}, {
 		argv: []string{"lit", "v"},
-		want: "echo <notaref> pre-v-post v",
+		want: "echo %{notaref} pre-v-post v",
 	}, {
 		argv: []string{"db", "shell"},
 		want: "psql app",
@@ -149,7 +149,7 @@ func TestValuesReachTheProgramVerbatim(t *testing.T) {
 	for _, hostile := range []string{
 		"$(rm -rf /)",
 		"$HOME",
-		"<glob>",
+		"%{glob}",
 		"; rm -rf ~",
 		"a b c",
 		"`whoami`",
@@ -166,7 +166,7 @@ func TestValuesReachTheProgramVerbatim(t *testing.T) {
 			t.Fatalf("%q: resolve: %v", hostile, err)
 		}
 		argv := stages[0].Argv
-		// --files, --glob, <value>, --sep=,
+		// --files, --glob, %{value}, --sep=,
 		if got := argv[2]; got != hostile {
 			t.Errorf("argv[2] = %q, want %q (argv %q)", got, hostile, argv)
 		}

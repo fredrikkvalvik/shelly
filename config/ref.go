@@ -5,19 +5,22 @@ import (
 	"strings"
 )
 
-// <name>, or <name...> for a variadic arg. << is a literal <.
+// %{name}, or %{name...} for a variadic arg. %%{ is a literal %{.
 //
-// Delimiters on both ends are what keep "<x>-post" unambiguous, and they leave
-// $VAR free to mean what everyone already expects it to mean.
-var refRe = regexp.MustCompile(`<<|<(` + namePat + `)(\.\.\.)?>`)
+// Angle brackets are deliberately not used here. In a declaration they already
+// mean two other things — <name> marks a required arg, and a value placeholder
+// is what makes a flag take a value — and a third meaning in the same file
+// would be one too many. %{ is rare in real argv: printf's formats never
+// contain it, and doubling only the opener leaves printf's own %% alone.
+var refRe = regexp.MustCompile(`%%\{|%\{(` + namePat + `)(\.\.\.)?\}`)
 
 // environment variable names are POSIX: no hyphens, unlike arg and flag names
 const envNamePat = `[A-Za-z_][A-Za-z0-9_]*`
 
-// what a config authored literal may contain once <name> refs are removed
-var literalRe = regexp.MustCompile(`<<|\$\$|\$\{(` + envNamePat + `)\}|\$(` + envNamePat + `)`)
+// what a config authored literal may contain once %{name} refs are removed
+var literalRe = regexp.MustCompile(`%%\{|\$\$|\$\{(` + envNamePat + `)\}|\$(` + envNamePat + `)`)
 
-// a <name> reference inside an argv element
+// a %{name} reference inside an argv element
 type Ref struct {
 	Name     string
 	Variadic bool
@@ -32,7 +35,7 @@ func Refs(s string) []Ref {
 
 	for _, m := range ms {
 		if m[2] < 0 {
-			continue // matched <<, not a reference
+			continue // matched %%{, not a reference
 		}
 		refs = append(refs, Ref{
 			Name:     s[m[2]:m[3]],
@@ -46,11 +49,11 @@ func Refs(s string) []Ref {
 }
 
 // reports whether the reference spans the whole element, which is what
-// distinguishes "<glob>" from "--glob=<glob>"
+// distinguishes "%{glob}" from "--glob=%{glob}"
 func (r Ref) Whole(s string) bool { return r.Start == 0 && r.End == len(s) }
 
-// ExpandLiteral resolves config authored text: << becomes <, $$ becomes $, and
-// $VAR or ${VAR} becomes the environment's value. It reports false when a
+// ExpandLiteral resolves config authored text: %%{ becomes %{, $$ becomes $,
+// and $VAR or ${VAR} becomes the environment's value. It reports false when a
 // referenced variable is unset, which drops the whole element rather than
 // leaving a truncated path behind.
 //
@@ -76,8 +79,8 @@ func ExpandLiteral(s string, env func(string) (string, bool)) (string, bool) {
 		case m[4] >= 0:
 			name = 4 // $VAR
 		default:
-			// << or $$, a literal delimiter
-			b.WriteString(s[m[0] : m[0]+1])
+			// %%{ or $$, a literal that loses one character
+			b.WriteString(s[m[0]+1 : m[1]])
 			continue
 		}
 

@@ -15,8 +15,8 @@ exec = [{ cmd = "rg", argv = [
   "--ignore-file", "$HOME/.rgignore",
   "--prog", "{print $1}",
   "--missing=$NOPE/x",
-  "<conf>",
-  "<glob>",
+  "%{conf}",
+  "%{glob}",
 ]}]
 `
 
@@ -78,7 +78,7 @@ func TestUnsetEnvDropsTheElement(t *testing.T) {
 
 // config authored text is expanded; what the user typed never is
 func TestUserValuesAreNeverRescanned(t *testing.T) {
-	for _, hostile := range []string{"$HOME", "${HOME}", "$HOME/x", "<glob>", "<<x>"} {
+	for _, hostile := range []string{"$HOME", "${HOME}", "$HOME/x", "%{glob}", "%%{x}"} {
 		argv := resolveWith(t, []string{"run", "--", hostile}, map[string]string{
 			"HOME":            "/Users/f",
 			"XDG_CONFIG_HOME": "/cfg",

@@ -167,26 +167,26 @@ func validateRefs(c *Cmd, errf errfn) error {
 				flag := c.Flag(r.Name)
 				switch {
 				case arg == nil && flag == nil:
-					return errf("%s: <%s> is not a declared arg or flag", at, r.Name)
+					return errf("%s: %%{%s} is not a declared arg or flag", at, r.Name)
 				case arg != nil && flag != nil:
-					return errf("<%s> is declared as both an arg and a flag", r.Name)
+					return errf("%%{%s} is declared as both an arg and a flag", r.Name)
 				}
 				used[r.Name] = true
 
 				switch {
 				case arg != nil && arg.Variadic && !r.Variadic:
-					return errf("%s: arg %q is variadic, reference it as <%s...>", at, r.Name, r.Name)
+					return errf("%s: arg %q is variadic, reference it as %%{%s...}", at, r.Name, r.Name)
 				case arg != nil && !arg.Variadic && r.Variadic:
-					return errf("%s: arg %q is not variadic, reference it as <%s>", at, r.Name, r.Name)
+					return errf("%s: arg %q is not variadic, reference it as %%{%s}", at, r.Name, r.Name)
 				case flag != nil && r.Variadic:
 					return errf("%s: flag %q cannot be variadic", at, r.Name)
 				}
 
 				if r.Variadic && !r.Whole(elem) {
-					return errf("%s: <%s...> must be the whole element, not embedded in %q", at, r.Name, elem)
+					return errf("%s: %%{%s...} must be the whole element, not embedded in %q", at, r.Name, elem)
 				}
 				if flag != nil && flag.IsBool() && !r.Whole(elem) {
-					return errf("%s: bool flag <%s> must be the whole element, not embedded in %q", at, r.Name, elem)
+					return errf("%s: bool flag %%{%s} must be the whole element, not embedded in %q", at, r.Name, elem)
 				}
 			}
 		}

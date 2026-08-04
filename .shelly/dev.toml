@@ -15,7 +15,7 @@ doc = "build shelly into bin/"
 flag = [
   { name = "race", short = "r", type = "bool", doc = "build with the race detector", pass = "-race" },
 ]
-exec = [{ cmd = "go", argv = ["build", "<race>", "-o", "bin/shelly", "."] }]
+exec = [{ cmd = "go", argv = ["build", "%{race}", "-o", "bin/shelly", "."] }]
 
 [cmd.test]
 doc = "run the test suite"
@@ -28,19 +28,19 @@ flag = [
   { name = "run", short = "n", doc = "only tests matching this regex", pass = "-run" },
   { name = "count", short = "c", doc = "run each test this many times", pass = "-count" },
 ]
-exec = [{ cmd = "go", argv = ["test", "<race>", "<verbose>", "<run>", "<count>", "<pkg>"] }]
+exec = [{ cmd = "go", argv = ["test", "%{race}", "%{verbose}", "%{run}", "%{count}", "%{pkg}"] }]
 
 [cmd.vet]
 doc = "run go vet"
 arg = [{ name = "pkg", doc = "package pattern", default = "./..." }]
-exec = [{ cmd = "go", argv = ["vet", "<pkg>"] }]
+exec = [{ cmd = "go", argv = ["vet", "%{pkg}"] }]
 
 [cmd.fmt]
 doc = "list files that are not gofmt clean"
 flag = [
   { name = "write", short = "w", type = "bool", doc = "rewrite them in place", pass = "-w" },
 ]
-exec = [{ cmd = "gofmt", argv = ["-l", "<write>", "."] }]
+exec = [{ cmd = "gofmt", argv = ["-l", "%{write}", "."] }]
 
 [cmd.check]
 doc = "gofmt, vet and test, the pre-commit gate"

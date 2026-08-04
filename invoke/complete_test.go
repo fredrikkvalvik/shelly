@@ -86,7 +86,7 @@ name = "t"
 
 [cmd.pick]
 arg  = [{ name = "which", complete = ["printf", "alpha\tfirst\nbeta\tsecond\n"] }]
-exec = [{ cmd = "echo", argv = ["<which>"] }]
+exec = [{ cmd = "echo", argv = ["%{which}"] }]
 `
 	tl := loadSrc(t, src)
 
@@ -111,7 +111,7 @@ name = "t"
 
 [cmd.open]
 arg  = [{ name = "path", complete = "files" }]
-exec = [{ cmd = "cat", argv = ["<path>"] }]
+exec = [{ cmd = "cat", argv = ["%{path}"] }]
 `
 	tl := loadSrc(t, src)
 
@@ -130,7 +130,7 @@ name = "t"
 
 [cmd.x]
 flag = [{ name = "mode", short = "m", complete = ["printf", "fast\nslow\n"] }]
-exec = [{ cmd = "echo", argv = ["<mode>"] }]
+exec = [{ cmd = "echo", argv = ["%{mode}"] }]
 `
 	tl := loadSrc(t, src)
 
@@ -166,7 +166,7 @@ func TestHelpOutput(t *testing.T) {
 		"(default: ,)",
 		"-h, --help",
 		"runs:",
-		"rg --files <hidden> <max> --glob <glob> --sep=<sep> | fzf --height 40%",
+		"rg --files %{hidden} %{max} --glob %{glob} --sep=%{sep} | fzf --height 40%",
 	} {
 		if !strings.Contains(search, want) {
 			t.Errorf("search help missing %q:\n%s", want, search)

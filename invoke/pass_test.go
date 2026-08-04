@@ -16,7 +16,7 @@ flag = [
       "--border"] },
   { name = "query", short = "q", pass = ["--query", "--exact"] },
 ]
-exec = [{ cmd = "fzf", argv = ["--height", "40%", "<preview>", "<query>"] }]
+exec = [{ cmd = "fzf", argv = ["--height", "40%", "%{preview}", "%{query}"] }]
 `
 
 func TestBoolFlagGatesSeveralArguments(t *testing.T) {
