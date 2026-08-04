@@ -15,11 +15,11 @@ name = "t"
 
 [cmd.search]
 doc  = "search files"
-arg  = [{ name = "glob", default = "*" }]
+arg  = [{ spec = "[glob]", default = "*" }]
 flag = [
-  { name = "hidden", short = "H", type = "bool", pass = "--hidden" },
-  { name = "max",    short = "m", pass = "--max-count" },
-  { name = "sep",    default = "," },
+  "-H --hidden",
+  { spec = "-m --max <n>", pass = "--max-count" },
+  { spec = "--sep <s>", default = ",", pass = "" },
 ]
 exec = [
   { cmd = "rg",  argv = ["--files", "%{hidden}", "%{max}", "--glob", "%{glob}", "--sep=%{sep}"] },
@@ -27,11 +27,11 @@ exec = [
 ]
 
 [cmd.cat]
-arg  = [{ name = "files", variadic = true, required = true }]
+arg  = ["<files>..."]
 exec = [{ cmd = "cat", argv = ["--", "%{files...}"] }]
 
 [cmd.lit]
-arg  = [{ name = "x", default = "d" }]
+arg  = [{ spec = "[x]", default = "d" }]
 exec = [{ cmd = "echo", argv = ["%%{notaref}", "pre-%{x}-post", "%{x}"] }]
 
 [cmd.db]

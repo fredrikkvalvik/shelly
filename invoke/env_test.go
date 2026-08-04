@@ -9,8 +9,8 @@ const envSrc = `
 name = "t"
 
 [cmd.run]
-arg  = [{ name = "glob", default = "$HOME/default-glob" }]
-flag = [{ name = "conf", default = "${XDG_CONFIG_HOME}/t.yml", pass = "--conf" }]
+arg  = [{ spec = "[glob]", default = "$HOME/default-glob" }]
+flag = [{ spec = "--conf <p>", default = "${XDG_CONFIG_HOME}/t.yml", pass = "--conf" }]
 exec = [{ cmd = "rg", argv = [
   "--ignore-file", "$HOME/.rgignore",
   "--prog", "{print $1}",

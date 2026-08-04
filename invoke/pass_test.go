@@ -10,11 +10,11 @@ name = "t"
 
 [cmd.find]
 flag = [
-  { name = "preview", short = "p", type = "bool", pass = [
+  { spec = "-p --preview", pass = [
       "--preview", "bat --color=always {}",
       "--preview-window", "right:60%",
       "--border"] },
-  { name = "query", short = "q", pass = ["--query", "--exact"] },
+  { spec = "-q --query <s>", pass = ["--query", "--exact"] },
 ]
 exec = [{ cmd = "fzf", argv = ["--height", "40%", "%{preview}", "%{query}"] }]
 `

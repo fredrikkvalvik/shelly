@@ -13,8 +13,8 @@ doc  = "fzf wrappers"
 
 [cmd.search]
 doc  = "fuzzy-pick a file matching a glob"
-arg  = [{ name = "glob",   default = "*", doc = "glob to match", complete = "files" }]
-flag = [{ name = "hidden", short = "H", type = "bool", pass = "--hidden", doc = "include hidden files" }]
+arg  = [{ spec = "[glob]", default = "*", doc = "glob to match", complete = "files" }]
+flag = ["-H --hidden"]
 exec = [
   { cmd = "rg",  argv = ["--files", "%{hidden}", "--glob", "%{glob}"] },
   { cmd = "fzf", argv = ["--height", "40%", "--preview", "bat --color=always {}"] },
@@ -131,14 +131,14 @@ func TestValidationErrors(t *testing.T) {
 		name: "unreferenced flag",
 		src: `
 [cmd.x]
-flag = [{ name = "force", type = "bool", pass = "-f" }]
+flag = ["--force"]
 exec = [{ cmd = "rm", argv = ["-r"] }]`,
 		want: `flag "force" is declared but never referenced`,
 	}, {
 		name: "unreferenced arg",
 		src: `
 [cmd.x]
-arg  = [{ name = "path" }]
+arg  = ["[path]"]
 exec = [{ cmd = "rm", argv = ["-r"] }]`,
 		want: `arg "path" is declared but never referenced`,
 	}, {
@@ -151,7 +151,7 @@ exec = [{ cmd = "rm", argv = ["%{nope}"] }]`,
 		name: "a hyphen after a reference is unambiguous now",
 		src: `
 [cmd.x]
-arg  = [{ name = "a" }]
+arg  = ["[a]"]
 exec = [{ cmd = "echo", argv = ["%{a}-post", "%{nope}"] }]`,
 		want: `%{nope} is not a declared arg or flag`,
 	}, {
@@ -164,7 +164,7 @@ doc = "nothing"`,
 		name: "group with args",
 		src: `
 [cmd.x]
-arg = [{ name = "a" }]
+arg = ["[a]"]
 
 [cmd.x.y]
 exec = [{ cmd = "echo", argv = ["hi"] }]`,
@@ -173,52 +173,65 @@ exec = [{ cmd = "echo", argv = ["hi"] }]`,
 		name: "bool flag without pass",
 		src: `
 [cmd.x]
-flag = [{ name = "force", type = "bool" }]
+flag = [{ spec = "--force", pass = [] }]
 exec = [{ cmd = "rm", argv = ["%{force}"] }]`,
-		want: `bool flag "force" needs "pass"`,
+		want: `bool flag "force" has an empty pass`,
 	}, {
 		name: "bool flag embedded",
 		src: `
 [cmd.x]
-flag = [{ name = "force", type = "bool", pass = "-f" }]
+flag = ["--force"]
 exec = [{ cmd = "rm", argv = ["--x=%{force}"] }]`,
 		want: `must be the whole element`,
 	}, {
 		name: "variadic not last",
 		src: `
 [cmd.x]
-arg  = [{ name = "a", variadic = true }, { name = "b" }]
+arg  = ["<a>...", "[b]"]
 exec = [{ cmd = "echo", argv = ["%{a...}", "%{b}"] }]`,
 		want: `must be the last arg`,
 	}, {
 		name: "variadic referenced without ellipsis",
 		src: `
 [cmd.x]
-arg  = [{ name = "a", variadic = true }]
+arg  = ["<a>..."]
 exec = [{ cmd = "echo", argv = ["%{a}"] }]`,
 		want: `reference it as %{a...}`,
 	}, {
 		name: "required after optional",
 		src: `
 [cmd.x]
-arg  = [{ name = "a" }, { name = "b", required = true }]
+arg  = ["[a]", "<b>"]
 exec = [{ cmd = "echo", argv = ["%{a}", "%{b}"] }]`,
 		want: `follows optional arg "a"`,
 	}, {
 		name: "duplicate short",
 		src: `
 [cmd.x]
-flag = [{ name = "aa", short = "a", type = "bool", pass = "-a" },
-        { name = "bb", short = "a", type = "bool", pass = "-b" }]
+flag = ["-a --aa", "-a --bb"]
 exec = [{ cmd = "echo", argv = ["%{aa}", "%{bb}"] }]`,
 		want: `both use short "a"`,
 	}, {
-		name: "bad flag type",
+		name: "flag spec with two long names",
 		src: `
 [cmd.x]
-flag = [{ name = "n", type = "int" }]
+flag = ["--n --m"]
 exec = [{ cmd = "echo", argv = ["%{n}"] }]`,
-		want: `unknown flag type "int", want one of: bool, string`,
+		want: `gives two long names`,
+	}, {
+		name: "arg spec without brackets",
+		src: `
+[cmd.x]
+arg  = ["glob"]
+exec = [{ cmd = "echo", argv = ["%{glob}"] }]`,
+		want: `must be <name> for a required one or [name] for an optional one`,
+	}, {
+		name: "an entry that is neither a string nor a table",
+		src: `
+[cmd.x]
+arg  = [3]
+exec = [{ cmd = "echo", argv = ["hi"] }]`,
+		want: `want a spec string or a table`,
 	}, {
 		name: "unknown key",
 		src: `
@@ -229,9 +242,9 @@ exce = [{ cmd = "echo", argv = ["hi"] }]`,
 		name: "unknown key in arg",
 		src: `
 [cmd.x]
-arg  = [{ name = "a", require = true }]
+arg  = [{ spec = "[a]", require = true }]
 exec = [{ cmd = "echo", argv = ["%{a}"] }]`,
-		want: `unknown key "require", want one of: name, doc, default, required, variadic, complete`,
+		want: `unknown key "require", want one of: spec, doc, default, complete`,
 	}, {
 		name: "reserved subcommand name",
 		src: `

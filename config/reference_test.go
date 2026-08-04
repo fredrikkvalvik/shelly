@@ -57,11 +57,19 @@ func TestReferenceDocumentsEveryVariant(t *testing.T) {
 	}
 	text := string(src)
 
-	for _, ft := range flagTypes {
-		used := regexp.MustCompile(`type\s*=\s*"` + regexp.QuoteMeta(string(ft)) + `"`)
-		if !used.MatchString(text) {
-			t.Errorf("flag type %q is never used in %s", ft, referencePath)
-		}
+	// a flag's type comes from its spec: no value placeholder means boolean
+	if !regexp.MustCompile(`"-?[A-Za-z-]* ?--[a-z-]+"`).MatchString(text) {
+		t.Errorf("no boolean flag spec in %s", referencePath)
+	}
+	if !regexp.MustCompile(`--[a-z-]+ <[a-z]+>`).MatchString(text) {
+		t.Errorf("no string flag spec in %s", referencePath)
+	}
+	// and both entry shapes must be shown, since both are accepted
+	if !regexp.MustCompile(`(?m)^\s*"-[A-Za-z] --[a-z-]+",?\s*$`).MatchString(text) {
+		t.Errorf("the bare spec shorthand is never shown in %s", referencePath)
+	}
+	if !regexp.MustCompile(`spec\s*=`).MatchString(text) {
+		t.Errorf("the table form is never shown in %s", referencePath)
 	}
 	for _, b := range builtins {
 		used := regexp.MustCompile(`complete\s*=\s*"` + regexp.QuoteMeta(string(b)) + `"`)

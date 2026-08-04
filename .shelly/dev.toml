@@ -13,32 +13,34 @@ doc = "development tasks for shelly itself"
 [cmd.build]
 doc = "build shelly into bin/"
 flag = [
-  { name = "race", short = "r", type = "bool", doc = "build with the race detector", pass = "-race" },
+  { spec = "-r --race", doc = "build with the race detector", pass = "-race" },
 ]
 exec = [{ cmd = "go", argv = ["build", "%{race}", "-o", "bin/shelly", "."] }]
 
 [cmd.test]
 doc = "run the test suite"
 arg = [
-  { name = "pkg", doc = "package pattern", default = "./..." },
+  { spec = "[pkg]", doc = "package pattern", default = "./..." },
 ]
+# go spells its flags with one dash, which is exactly what pass is for: without
+# it these would emit --race and --run
 flag = [
-  { name = "race", short = "r", type = "bool", doc = "enable the race detector", pass = "-race" },
-  { name = "verbose", short = "v", type = "bool", doc = "show every test", pass = "-v" },
-  { name = "run", short = "n", doc = "only tests matching this regex", pass = "-run" },
-  { name = "count", short = "c", doc = "run each test this many times", pass = "-count" },
+  { spec = "-r --race",        doc = "enable the race detector",       pass = "-race" },
+  { spec = "-v --verbose",     doc = "show every test",                pass = "-v" },
+  { spec = "-n --run <regex>", doc = "only tests matching this regex", pass = "-run" },
+  { spec = "-c --count <n>",   doc = "run each test this many times",  pass = "-count" },
 ]
 exec = [{ cmd = "go", argv = ["test", "%{race}", "%{verbose}", "%{run}", "%{count}", "%{pkg}"] }]
 
 [cmd.vet]
 doc = "run go vet"
-arg = [{ name = "pkg", doc = "package pattern", default = "./..." }]
+arg = [{ spec = "[pkg]", doc = "package pattern", default = "./..." }]
 exec = [{ cmd = "go", argv = ["vet", "%{pkg}"] }]
 
 [cmd.fmt]
 doc = "list files that are not gofmt clean"
 flag = [
-  { name = "write", short = "w", type = "bool", doc = "rewrite them in place", pass = "-w" },
+  { spec = "-w --write", doc = "rewrite them in place", pass = "-w" },
 ]
 exec = [{ cmd = "gofmt", argv = ["-l", "%{write}", "."] }]
 

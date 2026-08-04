@@ -26,7 +26,7 @@ func Help(t *config.Tool, c *config.Cmd) string {
 		b.WriteString("\ncommands:\n")
 		w := tabwriter.NewWriter(&b, 0, 0, 3, ' ', 0)
 		for _, s := range c.Sub {
-			fmt.Fprintf(w, "  %s\t%s\n", s.Name, s.Doc)
+			fmt.Fprintf(w, "  %s\t%s\n", s.Name, summary(s.Doc))
 		}
 		w.Flush()
 	}
@@ -35,7 +35,7 @@ func Help(t *config.Tool, c *config.Cmd) string {
 		b.WriteString("\narguments:\n")
 		w := tabwriter.NewWriter(&b, 0, 0, 3, ' ', 0)
 		for _, a := range c.Args {
-			fmt.Fprintf(w, "  %s\t%s\n", a.Name, withDefault(a.Doc, a.Default))
+			fmt.Fprintf(w, "  %s\t%s\n", a.Name, withDefault(summary(a.Doc), a.Default))
 		}
 		w.Flush()
 	}
@@ -44,7 +44,7 @@ func Help(t *config.Tool, c *config.Cmd) string {
 		b.WriteString("\nflags:\n")
 		w := tabwriter.NewWriter(&b, 0, 0, 3, ' ', 0)
 		for _, f := range c.Flags {
-			fmt.Fprintf(w, "  %s\t%s\n", flagSpec(f), withDefault(f.Doc, f.Default))
+			fmt.Fprintf(w, "  %s\t%s\n", flagSpec(f), withDefault(summary(f.Doc), f.Default))
 		}
 		fmt.Fprintf(w, "  %s\t%s\n", "-h, --help", "show this help")
 		w.Flush()
@@ -106,6 +106,13 @@ func flagSpec(f *config.Flag) string {
 		b.WriteString(" <value>")
 	}
 	return b.String()
+}
+
+// a listing is one row per entry, so only the first line of a description can
+// appear in it. The full text is shown in that command's own help header
+func summary(doc string) string {
+	line, _, _ := strings.Cut(doc, "\n")
+	return strings.TrimSpace(line)
 }
 
 // an argv element can hold spaces or newlines, which would otherwise make the

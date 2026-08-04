@@ -85,7 +85,7 @@ func TestCompleteFromProgram(t *testing.T) {
 name = "t"
 
 [cmd.pick]
-arg  = [{ name = "which", complete = ["printf", "alpha\tfirst\nbeta\tsecond\n"] }]
+arg  = [{ spec = "[which]", complete = ["printf", "alpha\tfirst\nbeta\tsecond\n"] }]
 exec = [{ cmd = "echo", argv = ["%{which}"] }]
 `
 	tl := loadSrc(t, src)
@@ -110,7 +110,7 @@ func TestCompleteBuiltinDirective(t *testing.T) {
 name = "t"
 
 [cmd.open]
-arg  = [{ name = "path", complete = "files" }]
+arg  = [{ spec = "[path]", complete = "files" }]
 exec = [{ cmd = "cat", argv = ["%{path}"] }]
 `
 	tl := loadSrc(t, src)
@@ -129,7 +129,7 @@ func TestCompleteFlagValue(t *testing.T) {
 name = "t"
 
 [cmd.x]
-flag = [{ name = "mode", short = "m", complete = ["printf", "fast\nslow\n"] }]
+flag = [{ spec = "-m --mode <v>", complete = ["printf", "fast\nslow\n"] }]
 exec = [{ cmd = "echo", argv = ["%{mode}"] }]
 `
 	tl := loadSrc(t, src)

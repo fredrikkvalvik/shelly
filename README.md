@@ -49,8 +49,8 @@ doc = "fzf wrappers"
 
 [cmd.search]
 doc  = "fuzzy-pick a file matching a glob"
-arg  = [{ name = "glob", default = "*", complete = "files" }]
-flag = [{ name = "hidden", short = "H", type = "bool", pass = "--hidden" }]
+arg  = [{ spec = "[glob]", default = "*", complete = "files" }]
+flag = ["-H --hidden"]
 exec = [
   { cmd = "rg",  argv = ["--files", "%{hidden}", "--glob", "%{glob}"] },
   { cmd = "fzf", argv = ["--height", "40%"] },
@@ -70,6 +70,23 @@ is a working config the test suite loads.
 
 Dotted table headers are command paths, so `[cmd.db.shell]` declares
 `ffzf db shell` with the whole path visible on one line.
+
+An `arg` or `flag` declares itself the way help output already reads it, which
+is the notation the [usage spec](https://usage.jdx.dev) uses. A bare string is
+the whole declaration when that is all you need; use a table, with the same
+string under `spec`, when you want more:
+
+```toml
+arg  = ["<pattern>", "[glob]", "<files>..."]
+flag = ["-H --hidden", "-m --max-count <n>"]
+
+flag = [{ spec = "-r --race", doc = "the race detector", pass = "-race" }]
+```
+
+`<name>` is required, `[name]` optional, a trailing `...` variadic, and a value
+placeholder is what makes a flag take a value. A flag emits `--` plus its long
+name unless `pass` says otherwise, since wrappers overwhelmingly pass a flag
+straight through.
 
 `arg` and `flag` declare the interface users see. `exec` is a pipeline: entries
 run concurrently and each pipes into the next. A command with no `exec` is a

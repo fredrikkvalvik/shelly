@@ -24,8 +24,8 @@ import (
 // ship undocumented
 var (
 	rootKeys = []string{"name", "doc", "cmd"}
-	argKeys  = []string{"name", "doc", "default", "required", "variadic", "complete"}
-	flagKeys = []string{"name", "short", "doc", "type", "pass", "default", "complete"}
+	argKeys  = []string{"spec", "doc", "default", "complete"}
+	flagKeys = []string{"spec", "doc", "pass", "default", "complete"}
 	execKeys = []string{"cmd", "argv"}
 
 	// reserved keys inside a command table. every other key is a subcommand
@@ -256,7 +256,7 @@ func (l *loader) cmd(c ctx, name string, path []string, v any) (*Cmd, error) {
 }
 
 func (l *loader) args(c ctx, v any) ([]*Arg, error) {
-	items, err := asTables(c, v)
+	items, err := asEntries(c, v)
 	if err != nil {
 		return nil, err
 	}
@@ -264,22 +264,27 @@ func (l *loader) args(c ctx, v any) ([]*Arg, error) {
 	args := make([]*Arg, 0, len(items))
 	for i, it := range items {
 		ic := c.index(i)
-		a := &Arg{}
-		for _, k := range l.sorted(ic, it) {
+
+		spec, err := specOf(ic, it)
+		if err != nil {
+			return nil, err
+		}
+		a, err := parseArgSpec(ic, spec)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, k := range l.sorted(ic, it.table) {
 			kc := ic.at(k)
 			switch k {
-			case "name":
-				a.Name, err = asString(kc, it[k])
+			case "spec":
+				// already parsed
 			case "doc":
-				a.Doc, err = asString(kc, it[k])
+				a.Doc, err = asString(kc, it.table[k])
 			case "default":
-				a.Default, err = asString(kc, it[k])
-			case "required":
-				a.Required, err = asBool(kc, it[k])
-			case "variadic":
-				a.Variadic, err = asBool(kc, it[k])
+				a.Default, err = asString(kc, it.table[k])
 			case "complete":
-				a.Complete, err = l.complete(kc, it[k])
+				a.Complete, err = l.complete(kc, it.table[k])
 			default:
 				err = unknownKey(kc, k, argKeys)
 			}
@@ -287,16 +292,13 @@ func (l *loader) args(c ctx, v any) ([]*Arg, error) {
 				return nil, err
 			}
 		}
-		if a.Name == "" {
-			return nil, ic.errf(`missing "name"`)
-		}
 		args = append(args, a)
 	}
 	return args, nil
 }
 
 func (l *loader) flags(c ctx, v any) ([]*Flag, error) {
-	items, err := asTables(c, v)
+	items, err := asEntries(c, v)
 	if err != nil {
 		return nil, err
 	}
@@ -304,29 +306,31 @@ func (l *loader) flags(c ctx, v any) ([]*Flag, error) {
 	flags := make([]*Flag, 0, len(items))
 	for i, it := range items {
 		ic := c.index(i)
-		f := &Flag{Type: FlagString}
-		for _, k := range l.sorted(ic, it) {
+
+		spec, err := specOf(ic, it)
+		if err != nil {
+			return nil, err
+		}
+		f, err := parseFlagSpec(ic, spec)
+		if err != nil {
+			return nil, err
+		}
+
+		passSet := false
+		for _, k := range l.sorted(ic, it.table) {
 			kc := ic.at(k)
 			switch k {
-			case "name":
-				f.Name, err = asString(kc, it[k])
-			case "short":
-				f.Short, err = asString(kc, it[k])
+			case "spec":
+				// already parsed
 			case "doc":
-				f.Doc, err = asString(kc, it[k])
-			case "type":
-				var s string
-				if s, err = asString(kc, it[k]); err == nil {
-					if f.Type, err = NewFlagType(s); err != nil {
-						err = kc.errf("%s", err)
-					}
-				}
+				f.Doc, err = asString(kc, it.table[k])
 			case "pass":
-				f.Pass, err = asStringList(kc, it[k])
+				f.Pass, err = asStringList(kc, it.table[k])
+				passSet = true
 			case "default":
-				f.Default, err = asString(kc, it[k])
+				f.Default, err = asString(kc, it.table[k])
 			case "complete":
-				f.Complete, err = l.complete(kc, it[k])
+				f.Complete, err = l.complete(kc, it.table[k])
 			default:
 				err = unknownKey(kc, k, flagKeys)
 			}
@@ -334,12 +338,54 @@ func (l *loader) flags(c ctx, v any) ([]*Flag, error) {
 				return nil, err
 			}
 		}
-		if f.Name == "" {
-			return nil, ic.errf(`missing "name"`)
+
+		// most wrappers pass a flag straight through, so --hidden is what a
+		// flag named hidden emits unless it says otherwise. pass = "" is how a
+		// string flag asks for the bare value with no token in front
+		if !passSet {
+			f.Pass = []string{"--" + f.Name}
 		}
 		flags = append(flags, f)
 	}
 	return flags, nil
+}
+
+// an arg or flag is written either as a bare spec string or as a table that
+// carries the spec plus whatever else it needs
+type entry struct {
+	spec  string
+	table map[string]any
+}
+
+func specOf(c ctx, e entry) (string, error) {
+	if e.spec != "" {
+		return e.spec, nil
+	}
+	v, ok := e.table["spec"]
+	if !ok {
+		return "", c.errf(`missing "spec"`)
+	}
+	return asString(c.at("spec"), v)
+}
+
+func asEntries(c ctx, v any) ([]entry, error) {
+	items, ok := v.([]any)
+	if !ok {
+		return nil, c.errf("want a list of specs or tables, got %s", kindOf(v))
+	}
+
+	out := make([]entry, 0, len(items))
+	for i, it := range items {
+		switch t := it.(type) {
+		case string:
+			out = append(out, entry{spec: t})
+		case map[string]any:
+			out = append(out, entry{table: t})
+		default:
+			return nil, c.index(i).errf("want a spec string or a table, got %s", kindOf(it))
+		}
+	}
+	return out, nil
 }
 
 func (l *loader) exec(c ctx, v any) ([]*Stage, error) {

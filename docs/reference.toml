@@ -32,47 +32,48 @@ doc = "every key shelly accepts"
 [cmd.search]
 doc = "shown in the parent's command list and in this command's own help"
 
-# Positional args, in declaration order. Optional args may not be followed by
-# required ones, and only the last may be variadic.
+# Positional args, in declaration order. An arg declares itself the way help
+# output already reads it: <name> is required, [name] is optional, and a
+# trailing ... makes it variadic. Optional args may not be followed by required
+# ones, and only the last may be variadic.
+#
+# A bare string is the whole declaration when that is all you need. Use a table
+# when you want more, putting the same string under "spec".
 arg = [
-  { name     = "glob",
+  { spec     = "[glob]",
     doc      = "help text for this arg",
-    default  = "*",      # used when the arg is omitted; conflicts with required
-    required = false,    # a required arg must be given; conflicts with default
-    variadic = false,    # collects the rest; only valid on the last arg
-    complete = "files" },# "files" or "dirs", or an argv list — see cmd.logs
+    default  = "*",       # used when the arg is omitted; a required arg cannot have one
+    complete = "files" }, # "files" or "dirs", or an argv list — see cmd.logs
 ]
 
-# Flags. Every declared flag must be referenced from exec, or the config is
-# rejected: an unused flag is a lie in the help output.
+# Flags declare themselves the same way. A flag with no value placeholder is a
+# boolean; "-m --max <n>" takes a value. The short name is optional and exactly
+# one character; "h" is reserved for --help.
+#
+# What a flag emits when set is "--" plus its long name, so a flag that passes
+# straight through needs nothing beyond its spec. Every declared flag must be
+# referenced from exec, or the config is rejected: an unused flag is a lie in
+# the help output.
 flag = [
-  # type = "bool" is present-or-absent and takes no value, so it needs "pass":
-  # the literal token emitted when the flag is set. It has nothing else to emit.
-  { name  = "hidden",
-    short = "H",             # optional, exactly one character; "h" is reserved
-    doc   = "include hidden files",
-    type  = "bool",
-    pass  = "--hidden" },
+  # the shorthand: emits --hidden when given
+  "-H --hidden",
 
-  # type = "string" takes a value. Its pass tokens are emitted first, then the
-  # value. Without "pass" it renders as the bare value.
-  { name    = "max",
-    short   = "m",
+  # "pass" overrides that, for when the wrapped tool spells it differently.
+  # A string flag emits its pass tokens first, then the value. pass = "" asks
+  # for the bare value with no token in front of it.
+  { spec    = "-m --max-count <n>",
     doc     = "limit the number of results",
-    type    = "string",      # the default, so this key can be omitted
     pass    = "--max-count",
-    default = "100" },       # used when the flag is absent; bool flags cannot have one
+    default = "100" },  # used when the flag is absent; bool flags cannot have one
 
   # "pass" may be a list, which lets one flag gate a whole cluster of
   # arguments instead of just one. Each entry is its own argv element, so a
   # multi word entry like the preview command below is not split.
-  { name  = "preview",
-    short = "p",
-    doc   = "show a preview pane",
-    type  = "bool",
-    pass  = ["--preview", "bat --color=always {}",
-             "--preview-window", "right:60%",
-             "--border"] },
+  { spec = "-p --preview",
+    doc  = "show a preview pane",
+    pass = ["--preview", "bat --color=always {}",
+            "--preview-window", "right:60%",
+            "--border"] },
 ]
 
 # The pipeline. Entries run concurrently and each pipes into the next, so this
@@ -83,7 +84,7 @@ flag = [
 # and there is nothing to quote or escape.
 exec = [
   { cmd  = "rg",
-    argv = ["--files", "%{hidden}", "%{max}", "--glob", "%{glob}"] },
+    argv = ["--files", "%{hidden}", "%{max-count}", "--glob", "%{glob}"] },
   { cmd  = "fzf",
     argv = ["--height", "40%", "%{preview}"] },
 ]
@@ -95,12 +96,8 @@ exec = [
 [cmd.subst]
 doc = "the ways a value can be written into argv"
 
-arg = [
-  { name = "value", doc = "any string", default = "v" },
-]
-flag = [
-  { name = "sep", doc = "a string flag with no pass token", default = "," },
-]
+arg = [{ spec = "[value]", doc = "any string", default = "v" }]
+flag = [{ spec = "--sep <s>", doc = "a string flag rendering as the bare value", default = ",", pass = "" }]
 
 exec = [{ cmd = "printf", argv = [
   # %{name} alone as an element renders fully: an arg becomes its value, a bool
@@ -147,7 +144,7 @@ doc = "a required variadic arg"
 # at least one. Reference it with the ... suffix inside the delimiters, which
 # must be the whole element; "pre-%{files...}" is rejected.
 arg = [
-  { name = "files", doc = "one or more files", required = true, variadic = true, complete = "files" },
+  { spec = "<files>...", doc = "one or more files", complete = "files" },
 ]
 exec = [{ cmd = "cat", argv = ["--", "%{files...}"] }]
 
@@ -162,9 +159,8 @@ arg = [
   # An argv list runs that program and reads one candidate per line. Split a
   # line on a tab to give the candidate a description. This is argv, not a
   # shell string, for the same reason exec is.
-  { name     = "container",
+  { spec     = "<container>",
     doc      = "container name",
-    required = true,
     complete = ["docker", "ps", "--format", "{{.Names}}"] },
 ]
 exec = [{ cmd = "docker", argv = ["logs", "%{container}"] }]
@@ -174,7 +170,7 @@ doc = "the dirs builtin"
 
 # "files" and "dirs" are handed back to the shell as a directive, so its own
 # completion does the work rather than shelly reimplementing it.
-arg = [{ name = "dir", doc = "target directory", complete = "dirs" }]
+arg = [{ spec = "[dir]", doc = "target directory", complete = "dirs" }]
 exec = [{ cmd = "ls", argv = ["%{dir}"] }]
 
 # ---------------------------------------------------------------------------

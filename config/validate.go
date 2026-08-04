@@ -119,15 +119,12 @@ func validateFlags(c *Cmd, errf errfn) error {
 		}
 		seen[f.Name] = true
 
-		// NewFlagType guards the load path; this catches a Tool built in Go
+		// the spec parser guards the load path; this catches a Tool built in Go
 		if !f.Type.Valid() {
 			return errf("flag %q has invalid type %q", f.Name, f.Type)
 		}
 
 		if f.Short != "" {
-			if len([]rune(f.Short)) != 1 {
-				return errf("flag %q has short %q, want a single character", f.Name, f.Short)
-			}
 			if prev, ok := shorts[f.Short]; ok {
 				return errf("flags %q and %q both use short %q", prev, f.Name, f.Short)
 			}
@@ -144,7 +141,7 @@ func validateFlags(c *Cmd, errf errfn) error {
 
 		if f.IsBool() {
 			if len(f.Pass) == 0 {
-				return errf(`bool flag %q needs "pass", there is nothing to emit without it`, f.Name)
+				return errf(`bool flag %q has an empty pass, so it would emit nothing`, f.Name)
 			}
 			if f.Default != "" {
 				return errf("bool flag %q cannot have a default", f.Name)
