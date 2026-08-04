@@ -95,3 +95,88 @@ func (f *Flag) usage() string {
 	}
 	return b.String()
 }
+
+// A spec string may carry more than the spec: everything an entry usually
+// needs fits on one line.
+//
+//	"-r --race        -> -race   # enable the race detector"
+//	"-n --run <regex> -> -run    # only tests matching this regex"
+//
+// -> introduces the tokens the flag emits, and # the description. Tokens split
+// on whitespace unless grouped by quotes, and both quote characters work: TOML
+// leaves whichever one you did not spend on the string itself alone, so
+//
+//	"--preview -> --preview 'bat --color=always {}'"
+//	'--preview -> --preview "bat --color=always {}"'
+//
+// both deliver the command as a single token with nothing escaped.
+type entrySpec struct {
+	Spec    string
+	Pass    []string
+	HasPass bool
+	Doc     string
+}
+
+func splitEntry(c ctx, s string) (entrySpec, error) {
+	var (
+		e      entrySpec
+		spec   []string
+		cur    strings.Builder
+		quote  rune
+		quoted bool
+		inPass bool
+		runes  = []rune(s)
+	)
+
+	flush := func() {
+		if cur.Len() == 0 && !quoted {
+			return
+		}
+		tok := cur.String()
+		cur.Reset()
+		switch {
+		case !inPass && !quoted && tok == "->":
+			inPass, e.HasPass = true, true
+		case inPass:
+			e.Pass = append(e.Pass, tok)
+		default:
+			spec = append(spec, tok)
+		}
+		quoted = false
+	}
+
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		switch {
+		case quote != 0:
+			if r == quote {
+				quote, quoted = 0, true
+				continue
+			}
+			cur.WriteRune(r)
+
+		case r == '\'' || r == '"':
+			quote = r
+
+		// a description runs to the end of the line, so nothing after it is
+		// scanned for markers
+		case r == '#' && cur.Len() == 0 && !quoted:
+			e.Doc = strings.TrimSpace(string(runes[i+1:]))
+			e.Spec = strings.Join(spec, " ")
+			return e, nil
+
+		case r == ' ' || r == '\t':
+			flush()
+
+		default:
+			cur.WriteRune(r)
+		}
+	}
+	if quote != 0 {
+		return e, c.errf("unterminated %c quote in %q", quote, s)
+	}
+	flush()
+
+	e.Spec = strings.Join(spec, " ")
+	return e, nil
+}

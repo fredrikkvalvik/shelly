@@ -64,12 +64,18 @@ func TestReferenceDocumentsEveryVariant(t *testing.T) {
 	if !regexp.MustCompile(`--[a-z-]+ <[a-z]+>`).MatchString(text) {
 		t.Errorf("no string flag spec in %s", referencePath)
 	}
-	// and both entry shapes must be shown, since both are accepted
-	if !regexp.MustCompile(`(?m)^\s*"-[A-Za-z] --[a-z-]+",?\s*$`).MatchString(text) {
-		t.Errorf("the bare spec shorthand is never shown in %s", referencePath)
+	// every shape an entry can take has to appear, since all of them load
+	shapes := map[string]string{
+		"the bare spec shorthand": `(?m)^\s*"-[A-Za-z] --[a-z-]+.*",?\s*$`,
+		"the table form":          `spec\s*=`,
+		"-> for pass":             `->`,
+		"# for a description":     `"[^"]* # [^"]*"`,
+		"a quoted pass token":     `-> [^"]*'[^']* [^']*'`,
 	}
-	if !regexp.MustCompile(`spec\s*=`).MatchString(text) {
-		t.Errorf("the table form is never shown in %s", referencePath)
+	for what, pat := range shapes {
+		if !regexp.MustCompile(pat).MatchString(text) {
+			t.Errorf("%s is never shown in %s", what, referencePath)
+		}
 	}
 	for _, b := range builtins {
 		used := regexp.MustCompile(`complete\s*=\s*"` + regexp.QuoteMeta(string(b)) + `"`)

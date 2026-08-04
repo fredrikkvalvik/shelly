@@ -265,14 +265,22 @@ func (l *loader) args(c ctx, v any) ([]*Arg, error) {
 	for i, it := range items {
 		ic := c.index(i)
 
-		spec, err := specOf(ic, it)
+		raw, err := specOf(ic, it)
 		if err != nil {
 			return nil, err
 		}
-		a, err := parseArgSpec(ic, spec)
+		e, err := splitEntry(ic, raw)
 		if err != nil {
 			return nil, err
 		}
+		if e.HasPass {
+			return nil, ic.errf("-> is for flags: an arg has nothing to pass")
+		}
+		a, err := parseArgSpec(ic, e.Spec)
+		if err != nil {
+			return nil, err
+		}
+		a.Doc = e.Doc
 
 		for _, k := range l.sorted(ic, it.table) {
 			kc := ic.at(k)
@@ -280,6 +288,10 @@ func (l *loader) args(c ctx, v any) ([]*Arg, error) {
 			case "spec":
 				// already parsed
 			case "doc":
+				if e.Doc != "" {
+					err = kc.errf("doc is given twice, in the spec and as a key")
+					break
+				}
 				a.Doc, err = asString(kc, it.table[k])
 			case "default":
 				a.Default, err = asString(kc, it.table[k])
@@ -307,24 +319,40 @@ func (l *loader) flags(c ctx, v any) ([]*Flag, error) {
 	for i, it := range items {
 		ic := c.index(i)
 
-		spec, err := specOf(ic, it)
+		raw, err := specOf(ic, it)
 		if err != nil {
 			return nil, err
 		}
-		f, err := parseFlagSpec(ic, spec)
+		e, err := splitEntry(ic, raw)
 		if err != nil {
 			return nil, err
 		}
+		f, err := parseFlagSpec(ic, e.Spec)
+		if err != nil {
+			return nil, err
+		}
+		f.Doc = e.Doc
 
-		passSet := false
+		passSet := e.HasPass
+		if e.HasPass {
+			f.Pass = e.Pass
+		}
 		for _, k := range l.sorted(ic, it.table) {
 			kc := ic.at(k)
 			switch k {
 			case "spec":
 				// already parsed
 			case "doc":
+				if e.Doc != "" {
+					err = kc.errf("doc is given twice, in the spec and as a key")
+					break
+				}
 				f.Doc, err = asString(kc, it.table[k])
 			case "pass":
+				if e.HasPass {
+					err = kc.errf("pass is given twice, after -> and as a key")
+					break
+				}
 				f.Pass, err = asStringList(kc, it.table[k])
 				passSet = true
 			case "default":

@@ -79,8 +79,33 @@ string under `spec`, when you want more:
 ```toml
 arg  = ["<pattern>", "[glob]", "<files>..."]
 flag = ["-H --hidden", "-m --max-count <n>"]
+```
 
-flag = [{ spec = "-r --race", doc = "the race detector", pass = "-race" }]
+Everything an entry usually needs fits on that line. `->` gives the tokens the
+flag emits, `#` the description:
+
+```toml
+flag = [
+  "-r --race        -> -race   # enable the race detector",
+  "-n --run <regex> -> -run    # only tests matching this regex",
+  "-p --preview     -> --preview 'bat --color=always {}' --preview-window right:60%",
+]
+```
+
+Tokens after `->` split on whitespace unless grouped by quotes, and **both quote
+characters work** — TOML leaves whichever one you did not spend on the string
+itself alone, so nothing needs escaping either way:
+
+```toml
+"--preview -> --preview 'bat --color=always {}'"
+'--preview -> --preview "bat --color=always {}"'
+```
+
+Use the table form, with the same string under `spec`, for what the line cannot
+carry — `default` and `complete`:
+
+```toml
+arg = [{ spec = "[glob] # only paths matching this", default = "*", complete = "files" }]
 ```
 
 `<name>` is required, `[name]` optional, a trailing `...` variadic, and a value
@@ -113,8 +138,9 @@ behind. Delimiters on both ends mean embedding is never ambiguous, so
 `"pre-%{x}-post"` needs no escaping. Only the opener doubles to escape, which
 leaves `printf`'s own `%%` alone.
 
-`pass` may be a list, so one flag can gate a whole cluster of arguments rather
-than a single token:
+`pass` as a key is the same thing written out, which reads better once the
+cluster gets long — one flag can gate a whole group of arguments rather than a
+single token:
 
 ```toml
 flag = [{ name = "preview", short = "p", type = "bool", pass = [

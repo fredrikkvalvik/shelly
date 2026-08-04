@@ -55,22 +55,28 @@ arg = [
 # referenced from exec, or the config is rejected: an unused flag is a lie in
 # the help output.
 flag = [
-  # the shorthand: emits --hidden when given
-  "-H --hidden",
+  # the shorthand. Everything an entry usually needs fits on one line: -> gives
+  # the tokens the flag emits, and # the description. With neither, it emits
+  # "--" plus its long name, which is what a flag passing straight through wants.
+  "-H --hidden  # include hidden files",
 
-  # "pass" overrides that, for when the wrapped tool spells it differently.
-  # A string flag emits its pass tokens first, then the value. pass = "" asks
-  # for the bare value with no token in front of it.
-  { spec    = "-m --max-count <n>",
-    doc     = "limit the number of results",
-    pass    = "--max-count",
+  # -> overrides what it emits, for when the wrapped tool spells it
+  # differently. A string flag emits those tokens first, then the value.
+  # A bare -> with nothing after it asks for the value with no token in front.
+  "-c --count <n> -> -count  # go spells this one with a single dash",
+
+  # Tokens after -> split on whitespace unless grouped by quotes. Both quote
+  # characters work, so whichever one TOML did not spend on the string itself
+  # is still free and nothing needs escaping.
+  "-p --preview -> --preview 'bat --color=always {}' --preview-window right:60%  # show a preview pane",
+
+  # The table form is for what the line cannot carry: default and complete.
+  { spec    = "-m --max-count <n> # limit the number of results",
     default = "100" },  # used when the flag is absent; bool flags cannot have one
 
-  # "pass" may be a list, which lets one flag gate a whole cluster of
-  # arguments instead of just one. Each entry is its own argv element, so a
-  # multi word entry like the preview command below is not split.
-  { spec = "-p --preview",
-    doc  = "show a preview pane",
+  # pass as a key is the same thing written out, which reads better once the
+  # cluster gets long. Each entry is its own argv element either way.
+  { spec = "-b --bordered # a preview with a border",
     pass = ["--preview", "bat --color=always {}",
             "--preview-window", "right:60%",
             "--border"] },
@@ -84,9 +90,9 @@ flag = [
 # and there is nothing to quote or escape.
 exec = [
   { cmd  = "rg",
-    argv = ["--files", "%{hidden}", "%{max-count}", "--glob", "%{glob}"] },
+    argv = ["--files", "%{hidden}", "%{count}", "%{max-count}", "--glob", "%{glob}"] },
   { cmd  = "fzf",
-    argv = ["--height", "40%", "%{preview}"] },
+    argv = ["--height", "40%", "%{preview}", "%{bordered}"] },
 ]
 
 # ---------------------------------------------------------------------------

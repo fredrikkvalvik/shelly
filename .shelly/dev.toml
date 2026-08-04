@@ -12,23 +12,19 @@ doc = "development tasks for shelly itself"
 
 [cmd.build]
 doc = "build shelly into bin/"
-flag = [
-  { spec = "-r --race", doc = "build with the race detector", pass = "-race" },
-]
+flag = ["-r --race -> -race  # build with the race detector"]
 exec = [{ cmd = "go", argv = ["build", "%{race}", "-o", "bin/shelly", "."] }]
 
 [cmd.test]
 doc = "run the test suite"
-arg = [
-  { spec = "[pkg]", doc = "package pattern", default = "./..." },
-]
-# go spells its flags with one dash, which is exactly what pass is for: without
+arg = [{ spec = "[pkg] # package pattern", default = "./..." }]
+# go spells its flags with one dash, which is exactly what -> is for: without
 # it these would emit --race and --run
 flag = [
-  { spec = "-r --race",        doc = "enable the race detector",       pass = "-race" },
-  { spec = "-v --verbose",     doc = "show every test",                pass = "-v" },
-  { spec = "-n --run <regex>", doc = "only tests matching this regex", pass = "-run" },
-  { spec = "-c --count <n>",   doc = "run each test this many times",  pass = "-count" },
+  "-r --race        -> -race   # enable the race detector",
+  "-v --verbose     -> -v      # show every test",
+  "-n --run <regex> -> -run    # only tests matching this regex",
+  "-c --count <n>   -> -count  # run each test this many times",
 ]
 exec = [{ cmd = "go", argv = ["test", "%{race}", "%{verbose}", "%{run}", "%{count}", "%{pkg}"] }]
 
@@ -39,9 +35,7 @@ exec = [{ cmd = "go", argv = ["vet", "%{pkg}"] }]
 
 [cmd.fmt]
 doc = "list files that are not gofmt clean"
-flag = [
-  { spec = "-w --write", doc = "rewrite them in place", pass = "-w" },
-]
+flag = ["-w --write -> -w  # rewrite them in place"]
 exec = [{ cmd = "gofmt", argv = ["-l", "%{write}", "."] }]
 
 [cmd.check]
