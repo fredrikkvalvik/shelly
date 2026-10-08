@@ -302,3 +302,7 @@ mise run build     # -> bin/shelly
 mise run test
 mise run check     # gofmt, vet, test — the pre-commit gate
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
